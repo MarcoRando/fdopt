@@ -1,4 +1,5 @@
 import torch
+import numpy as np
 
 class DirectionMatrix:
     
@@ -17,7 +18,7 @@ class DirectionMatrix:
     @property
     def seed(self):
         if self.mseed is not None:
-            return mseed
+            return self.mseed
         return self.generator.initial_seed()
         
     def __call__(self):

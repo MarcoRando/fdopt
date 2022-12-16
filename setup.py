@@ -1,15 +1,15 @@
+
 from setuptools import setup, find_packages
 
-
 setup(
-    name="eszd",
+    name="sszd",
     version="1.0.0",
-    description="ESZD: Efficient Structured Zeroth-order Descent",
-    python_requires='~=3.10',
+    description="SSZD: Structured Stochastic Zero-th Order Descent",
+    python_requires='>=3.6',
     setup_requires=[
         'setuptools>=18.0'
     ],
     packages=find_packages(),
-    install_requires=['numpy',],
+    install_requires=['numpy>=1.22'],
     include_package_data=True,
 )
