@@ -1,10 +1,9 @@
-
 from setuptools import setup, find_packages
 
 setup(
-    name="sszd",
+    name="eszd",
     version="1.0.0",
-    description="SSZD: Structured Stochastic Zero-th Order Descent",
+    description="ESZD: Efficient Structured Zeroth Order Descent",
     python_requires='>=3.6',
     setup_requires=[
         'setuptools>=18.0'
