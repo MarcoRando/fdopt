@@ -27,6 +27,7 @@ def get_time(dir_builders, dimensions, reps = 10):
             #    print(params)
                 dirs = builder(**params)
                 dirs()
+                dirs()
                 results[name].append(compute_dmatrix_cost(dirs, reps=reps))
             except RuntimeError as e:
                 break
@@ -72,11 +73,11 @@ builders = [
     ('spherical', SphericalDirections, common_params),
     ('rademacher', RadamacherDirections, common_params),
     ('random coordinates', RandomCoords, common_params),
-    ('QR directions', StructuredSphericalDirections, common_params),
     ('RotCoords Id', RotCoords, rot_params_id),
     ('RotRandomCoords', RotCoords, rot_params_rand),
     ('Reflected', ReflectedDirections, common_params),
-    ('Butterfly directions', ButterflyDirections, common_params)
+    ('Butterfly directions', ButterflyDirections, common_params),
+  #  ('QR directions', StructuredSphericalDirections, common_params),
 ]
 
 reps= 5

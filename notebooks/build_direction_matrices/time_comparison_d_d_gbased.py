@@ -4,7 +4,7 @@ import numpy as np
 
 from eszd.directions import DirectionMatrix, GaussianDirections, SphericalDirections,  RadamacherDirections, RandomCoords, StructuredSphericalDirections
 
-from utils import plot_comp_time, RotCoords, ReflectedDirections, ButterflyDirections
+from utils import plot_comp_time, RotCoords, ReflectedDirections, ButterflyDirections, CirculantDirections
 
 def compute_dmatrix_cost(dirs, reps=10):
     ctimes = []
@@ -29,7 +29,7 @@ def get_time(dir_builders, dimensions, reps = 10):
                 dirs()
                 results[name].append(compute_dmatrix_cost(dirs, reps=reps))
             except RuntimeError as e:
-            #    print(e)
+                print(e)
                 break
             print("\t[{}] Completed for d = {}".format(name, d))
         print("[{}] Completed!".format(name))
@@ -39,7 +39,8 @@ max_exp = 4
 
 dimensions = np.logspace(1, max_exp, max_exp)
 seed = 121213
-device = 'cpu'
+device = 'cuda'
+dtype = torch.float32
 
 
 common_params = {
@@ -47,7 +48,7 @@ common_params = {
     'l' : int(dimensions[0]),
     'seed' : seed,
     'device' : device,
-    'dtype' : torch.float64
+    'dtype' : dtype
 }
 
 rot_params_id = {
@@ -56,7 +57,7 @@ rot_params_id = {
     'seed' : seed,
     'device' : device,
     'use_identity' : True,
-    'dtype' : torch.float64
+    'dtype' : dtype
 }
 rot_params_rand = {
     'd' : int(dimensions[0]),
@@ -64,20 +65,21 @@ rot_params_rand = {
     'seed' : seed,
     'device' : device,
     'use_identity' : False,
-    'dtype' : torch.float64
+    'dtype' : dtype
 }
 
 
 builders = [
-    ('gaussian', GaussianDirections, common_params),
-    ('spherical', SphericalDirections, common_params),
-    ('rademacher', RadamacherDirections, common_params),
-    ('random coordinates', RandomCoords, common_params),
-    ('QR directions', StructuredSphericalDirections, common_params),
+    ('Gaussian', GaussianDirections, common_params),
+    ('Spherical', SphericalDirections, common_params),
+    ('Rademacher', RadamacherDirections, common_params),
+    ('Random Coordinates', RandomCoords, common_params),
+    ('Circulant directions', CirculantDirections, common_params),
     ('RotCoords Id', RotCoords, rot_params_id),
     ('RotRandomCoords', RotCoords, rot_params_rand),
     ('Reflected', ReflectedDirections, common_params),
-    ('Butterfly directions', ButterflyDirections, common_params)
+    ('Butterfly directions', ButterflyDirections, common_params),
+    ('QR directions', StructuredSphericalDirections, common_params),
     
 ]
 
