@@ -39,7 +39,7 @@ max_exp = 4
 
 dimensions = np.logspace(1, max_exp, max_exp)
 seed = 121213
-device = 'cuda'
+device = 'cpu'
 dtype = torch.float32
 
 

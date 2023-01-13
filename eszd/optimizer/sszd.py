@@ -4,15 +4,21 @@ from eszd.directions.directions import DirectionMatrix
 
 class SSZD(Optimizer):
     
-    def __init__(self, P : DirectionMatrix, alpha, h):
+    def __init__(self, target, x0, P : DirectionMatrix, alpha, h):
+        super().__init__(target, x0)
         self.P = P
         self.alpha = alpha
         self.h = h
-        
+        self.t = 1
 
-    def optimize(target, x : torch.Tensor, T : int, eps : float = 1e-10):
-        for t in range(T):
-            fx = target(x)
-            Pk = self.P()
-          #  Fx = 
-            
+
+    def step(self):
+        fx = self.target(self.x)
+        Pk = self.P()
+        alpha_k = self.alpha(self.t)
+        h_k = self.h(self.t)
+        Fx = target(self.x + h_k * P_k.T)
+        self.x -= alpha_k * (Pk @ ((Fx - fx) / h_k))
+        self.t+=1
+        return self.x
+
