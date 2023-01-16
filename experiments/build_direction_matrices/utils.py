@@ -3,6 +3,7 @@ import torch
 from math import cos, sin, pi, log2, sqrt
 import matplotlib.pyplot as plt
 from matplotlib import cm
+from itertools import combinations
 
 from eszd.directions import RandomCoords, DirectionMatrix
 
@@ -27,6 +28,26 @@ def plot_comp_time(results, dims, title = "Time comparison", xlab="$d$", xscale 
     fig.savefig("{}.pdf".format(out), bbox_inches='tight')
     plt.close(fig)
     
+    
+class GRot(DirectionMatrix):
+    
+    def __init__(self, d: int, l: int, seed: int | None = None, dtype=torch.float32, device: str = 'cpu'):
+        super().__init__(d, l, seed, dtype, device)
+        self.theta = 2 * pi* torch.rand((d * d, ), generator=self.generator, device=device, dtype=dtype)
+        self.R  = torch.eye(self.d, dtype=self.dtype, device=self.device)  
+    def _get_rotation(self, i, j, theta):
+        R = torch.eye(self.d, dtype=self.dtype, device=self.device)
+        c, s = cos(theta), sin(theta)
+        R[i, i], R[j, j] = c, c
+        R[i, j], R[j, i] = s, -s
+        return R
+
+    def __call__(self):
+        i, j = torch.randint(0, self.d, size=(2,), generator=self.generator)
+#        j = torch.randint(0, self.d, size=(1,), generator=self.generator)
+        idx = torch.randint(0, self.d * self.d, size=(1,), generator=self.generator)
+        self.R =  self._get_rotation(i, j, self.theta[idx]).matmul(self.R)
+        return self.R
     
 
 class RotCoords(RandomCoords):
