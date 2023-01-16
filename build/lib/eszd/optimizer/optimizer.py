@@ -1,3 +1,5 @@
 class Optimizer:
-    def __init__(self) -> None:
-        pass
+        
+    def step(self):
+        raise NotImplementedError
+    
