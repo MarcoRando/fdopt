@@ -12,6 +12,7 @@ class SSVRZD(Optimizer):
                  m = 10,
                  update_P = 'always'
                  ):
+        super().__init__("SSVRZD")
         self.P = P
         self.update_P = update_P
         self.alpha = alpha
@@ -39,7 +40,7 @@ class SSVRZD(Optimizer):
             alpha_k = self.alpha(t)
             h_k = self.h(t)
             x_j = x.clone()
-            trace.append(x)
+            trace.append(target(x))
             outer_it = time.time()
             G_t = self._approx_grad(target, x, h_k, Pk, target)
             for j in range(self.m):
