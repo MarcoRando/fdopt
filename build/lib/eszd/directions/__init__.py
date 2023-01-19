@@ -5,7 +5,7 @@ from eszd.directions.structured_directions import StructuredSphericalDirections
 
 __all__ = (
     'DirectionMatrix',
-    'RandomCoord',
+    'RandomCoords',
     'SphericalDirections',
     'RadamacherDirections',
     'StructuredSphericalDirections',

@@ -1,8 +1,9 @@
 class Optimizer:
         
-    def __init__(self, name) -> None:
+    def __init__(self, name : str, verbose : bool = False) -> None:
         self.name = name
+        self.verbose = verbose
         
-    def step(self):
+    def optimize(self, target, x, T = 1000, eps = 1e-5):
         raise NotImplementedError
     

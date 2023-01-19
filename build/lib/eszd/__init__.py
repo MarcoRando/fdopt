@@ -1,7 +1,9 @@
-from eszd.optimizer import Optimizer, SSZD
+from eszd.optimizer import Optimizer, SSZD, SSVRZD, ESSZD
 
 
 __all__ = (
     'Optimizer',
-    'SSZD'
+    'SSZD',
+    'SSVRZD',
+    'ESSZD'
 )
