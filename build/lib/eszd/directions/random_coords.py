@@ -8,7 +8,7 @@ class RandomCoords(DirectionMatrix):
         self.mgen = torch.Generator(device=mul_device)
         self.mgen.manual_seed(mul_seed)
         self.inds = torch.ones(self.d, device=mul_device)
-    
+        self.I = torch.zeros((self.d, self.l), device=self.device, dtype=self.dtype)
     
     def __call__(self):
         P = torch.zeros((self.d, self.l), device=self.device, dtype=self.dtype)

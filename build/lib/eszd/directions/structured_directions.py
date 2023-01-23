@@ -1,7 +1,7 @@
 import torch
 from eszd.directions.directions import DirectionMatrix
 
-class StructuredSphericalDirections(DirectionMatrix):
+class HouseholderQRDirections(DirectionMatrix):
     
     def __init__(self, **kwargs):
         super().__init__(**kwargs)

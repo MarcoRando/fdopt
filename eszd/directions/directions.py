@@ -1,5 +1,6 @@
 import torch
-import numpy as np
+
+from math import sqrt
 
 class DirectionMatrix:
     
@@ -10,7 +11,7 @@ class DirectionMatrix:
         self.device = device
         self.generator = torch.Generator(device=device)
         self.mseed = None
-        self.nrm_const = np.sqrt(d/l)
+        self.nrm_const = sqrt(d/l)
         if seed is not None:
             self.generator.manual_seed(seed)
             self.mseed = seed

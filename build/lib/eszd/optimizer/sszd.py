@@ -19,7 +19,8 @@ class SSZD(Optimizer):
     def optimize(self, target, x, T = 1000, eps = 1e-5):
         # T function evaluations 
         iteration_time = []
-        trace = [target(x)]
+        
+        trace = [target(x).item()]
         evals_per_iter = []#self.l]
         for t in range(1, T +1):
             it_time = time.time()
@@ -28,7 +29,7 @@ class SSZD(Optimizer):
             Pk = self.P()
             alpha_k = self.alpha(t)
             h_k = self.h(t)            
-            Fx = (target(x + h_k * Pk, z) - fx) / h_k
+            Fx = (target(x + h_k * Pk.T, z) - fx) / h_k
             g = Pk @ Fx
             x = x - alpha_k * g
             it_time = time.time() - it_time
@@ -36,6 +37,6 @@ class SSZD(Optimizer):
                 print("[--] t: {}/{}\tfx: {}".format(t, T, target(x)))
             iteration_time.append(it_time)
             evals_per_iter.append(self.l + 1)
-            trace.append(target(x))
+            trace.append(target(x).item())
         return x, iteration_time, trace, evals_per_iter
 
