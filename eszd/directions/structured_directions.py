@@ -7,28 +7,30 @@ VERBOSE = False
 def _resolve(name):
     return os.path.join(os.path.dirname(os.path.realpath(__file__)), name)
 
-try:
-    import householder_ref
-except ImportError:
-    if VERBOSE:
-        print('Falling back to JIT compiling householder_ref')
-    torch_householder_cpp = load(
-        name='householder_ref',
-        sources=[
-            _resolve('householder.cpp'),
-        ],
-        verbose=VERBOSE,
-    )
+#try:
+#    import householder_ref
+#except ImportError:
+#    if VERBOSE:
+#        print('Falling back to JIT compiling householder_ref')
+#    torch_householder_cpp = load(
+#        name='householder_ref',
+#        sources=[
+#            _resolve('householder.cpp'),
+#        ],
+#        verbose=VERBOSE,
+#    )
 
-class HouseholderReflect(DirectionMatrix):
+class HouseholderReflection(DirectionMatrix):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+        self.I = torch.eye(self.d, self.l, device=self.device, dtype=self.dtype)
 
     def __call__(self):
-        m = householder_ref.get_reflector(self.d, self.l)
-        return m
-
+        v = torch.randn(self.d, generator=self.generator, dtype=self.dtype)
+        v /= v.norm()
+        return self.nrm_const * (self.I - 2 * torch.outer(v, v[:self.l]))#householder_ref.get_reflector(self.d, self.l)
+        
 
 class HouseholderQRDirections(DirectionMatrix):
     
