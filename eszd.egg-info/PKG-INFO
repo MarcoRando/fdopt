@@ -2,4 +2,4 @@ Metadata-Version: 2.1
 Name: eszd
 Version: 1.0.0
 Summary: ESZD: Efficient Structured Zeroth Order Descent
-Requires-Python: >=3.6
+Requires-Python: >=3.8

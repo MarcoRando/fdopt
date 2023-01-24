@@ -1,0 +1,5 @@
+eszd.egg-info/PKG-INFO
+eszd.egg-info/SOURCES.txt
+eszd.egg-info/dependency_links.txt
+eszd.egg-info/requires.txt
+eszd.egg-info/top_level.txt
