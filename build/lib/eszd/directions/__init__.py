@@ -1,6 +1,6 @@
 from eszd.directions.directions import DirectionMatrix
 from eszd.directions.random_directions import RadamacherDirections,SphericalDirections,GaussianDirections
-from eszd.directions.structured_directions import HouseholderQRDirections, RandomCoords, HouseholderReflection
+from eszd.directions.structured_directions import HouseholderQRDirections, RandomCoords, HouseholderReflection, DCTDirections, ButterflyDirections
 
 
 __all__ = (
@@ -10,5 +10,7 @@ __all__ = (
     'RadamacherDirections',
     'HouseholderQRDirections',
     'GaussianDirections',
-    'HouseholderReflection'
+    'HouseholderReflection', 
+    'DCTDirections',
+    'ButterflyDirections'
 )
