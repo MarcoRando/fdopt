@@ -44,7 +44,7 @@ gen.manual_seed(12121212)
 #print("[--] angles: ", thetas)
 
 
-@torch.jit.script
+#@torch.jit.script
 def get_entry(i : int, j : int, thetas : torch.Tensor) -> float:
     if i == j:
         return thetas.cos().prod()
@@ -55,14 +55,15 @@ def get_entry(i : int, j : int, thetas : torch.Tensor) -> float:
         vals *= thetas[k].cos() if ((j >> k) + (i >> k) ) % 2 == 0 else thetas[k].sin()
     return vals
 
-@torch.jit.script
+#@torch.jit.script
 def build_parallel(n : int, l : int) -> torch.Tensor:
-    thetas = 2 * torch.pi * torch.rand(n)
+    thetas = 2 * torch.pi * torch.rand(n).to("cpu")
     d = int(2**n)
-    P = torch.zeros(d, l, dtype=torch.float32)
+    P = torch.zeros(d, l, dtype=torch.float32, device='cpu')
     for i in range(P.shape[0]):
         for j in range(l):
             P[i, j] = get_entry(i, j, thetas)
+            
     return sqrt(d/l) * P
 
 
@@ -84,12 +85,14 @@ btime = time.time() - btime
 
 _ = build_parallel(1, 1)
 it_time = time.time()
-Bt = build_parallel(int(log2(1e5)), 2)
+Bt = build_parallel(2, 2)
 it_time = time.time() - it_time
 
 print("[--] it time: {}".format(it_time))
 print("[--] it time: {}".format(btime))
 print(Bt.shape)
+
+print(Bt.T @ Bt)
 #check_butt(B, thetas)
 #print("B: ", B)
 #k = len(thetas)
