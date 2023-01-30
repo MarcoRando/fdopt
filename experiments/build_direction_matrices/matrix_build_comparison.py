@@ -1,14 +1,24 @@
 from directions import CirculantDirections, SingleHouseholder, ButterflyDirections
+from eszd.directions import GaussianDirections
 import numpy as np
 import torch
-from torch_dct import dct
+import time
+import cProfile as cP
 
-#P = ButterflyDirections(d=5, l=3)
+d = 10
+l = 5
+P = SingleHouseholder(d = 10, l=5, device='cuda')
+#Pg = GaussianDirections(d = int(1e4), l=1000, device='cuda')
+P()
+P()
+it_t = time.time()
+P = P()
+it_t = time.time() - it_t
 
-x = torch.eye(2, 3)
-mats = []
-P_k =dct(x, norm='ortho')
-for _ in range(1000):
-    P_k = dct(P_k, norm='ortho')
-    mats.append((P_k.T @ P_k).numpy())
-print(np.mean(mats, 0))
+
+print( P[:, 1].norm())
+
+#cP.run("P()")
+#cP.run("Pg()")
+#print("[--] time: {}".format(it_t))
+

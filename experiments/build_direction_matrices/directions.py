@@ -15,13 +15,13 @@ class CirculantDirections(DirectionMatrix):
 class SingleHouseholder(DirectionMatrix):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.I = torch.eye(self.d, self.l, dtype=self.dtype, device=self.device)
+        self.I = torch.eye(self.d, self.d, dtype=self.dtype, device=self.device)
 
     def __call__(self):
         x = torch.randn(self.d, generator=self.generator, dtype=self.dtype, device=self.device)
-        u = x + torch.dot(x, x)
-        v = u / u.norm()
-        return self.nrm_const * (self.I - 2.0 * torch.outer(v, v)[:self.l, :].T)
+        idx = torch.randperm(self.d, generator=self.generator, device=self.device)[:self.l]
+        x.div_(x.norm())
+        return (self.I[:, idx] - 2.0 * x.outer(x[:self.l]))
     
     
 class ButterflyDirections(DirectionMatrix):
