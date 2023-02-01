@@ -7,9 +7,9 @@ import matplotlib.pyplot as plt
 def target(x, z=None):
     return x[:, :1].square().sum(dim=1, keepdims=True)
 
-d = 20000
+d = 100
 l = 5
-device = 'cuda'
+device = 'cpu'
 P = HouseholderReflection(d=d, l=l, dtype=torch.float64, device=device)
 Pc = RandomCoords(d=d, l=l, dtype=torch.float64, device=device)
 Pfc = FastRandomCoords(d=d, l=l, dtype=torch.float64, device=device)
