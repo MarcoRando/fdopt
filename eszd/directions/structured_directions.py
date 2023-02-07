@@ -1,7 +1,7 @@
 import os
 import torch
 from eszd.directions.directions import DirectionMatrix
-
+from eszd.directions.butterfly import Butterfly
 from torch.fft import fft
 
 from torch_dct import dct
@@ -97,3 +97,25 @@ class FastRandomCoords(DirectionMatrix):
             P = self._compute_transform(P.T)
             P.div_(P.norm(dim=0))
         return P#.mul_(self.nrm_const)
+
+class HaarButterflyDirections(DirectionMatrix):
+    def __init__(self, dct = True, permute=False, reuse=True, **kwargs):
+        super().__init__(**kwargs)
+#        self.I = torch.eye(self.d, self.d, device = self.device, dtype = self.dtype)
+#        self.idx = torch.randperm(self.d, device=self.device, generator=self.generator) 
+        self.t = 0
+        self.dct = dct
+        self.permute = permute
+        self.reuse = reuse
+        self.btt = Butterfly(self.d, self.l, init='ortho')
+        self.P = None
+        
+    def __call__(self):
+#        idx = torch.randperm(self.d, device=self.device, generator=self.generator)         k = 
+        if self.reuse and self.P is not None:
+            self.P = self.btt(self.P)
+        else:
+            self.P = self.btt(torch.eye(self.l, self.d, device=self.device, dtype=self.dtype))
+        self.btt.reset_parameters()
+        return self.P.T
+        

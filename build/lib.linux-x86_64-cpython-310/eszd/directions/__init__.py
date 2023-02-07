@@ -1,10 +1,8 @@
 import torch
 import importlib
 from pathlib import Path
-print(str(Path(__file__).absolute().parent.parent))
-#print(importlib.machinery.PathFinder().find_spec('_butterfly', [str(Path(__file__).absolute().parent)]))
-#importlib.machinery.PathFinder().find_spec('_butterfly', [Path(__file__).absolute().parent])
-#print(str(Path(__file__).absolute().parent))
+
+
 torch.ops.load_library(importlib.machinery.PathFinder().find_spec('_butterfly', [str(Path(__file__).absolute().parent.parent)]).origin)
 from eszd.directions.butterfly_multiply import butterfly_multiply
 

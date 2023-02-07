@@ -1,6 +1,6 @@
 setup.py
-/home/akatsuki/Documents/PhD/efficient_szd/c_src/butterfly.cpp
-/home/akatsuki/Documents/PhD/efficient_szd/c_src/cpu/butterfly_cpu.cpp
+/home/mrando/efficient_szd/c_src/butterfly.cpp
+/home/mrando/efficient_szd/c_src/cpu/butterfly_cpu.cpp
 eszd/__init__.py
 eszd.egg-info/PKG-INFO
 eszd.egg-info/SOURCES.txt

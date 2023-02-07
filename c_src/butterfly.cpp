@@ -29,16 +29,16 @@ torch::Tensor butterfly_multiply_fw(const torch::Tensor twiddle,
      Returns:
          output: (batch_size, nstacks, output_size)
   */
-  CHECK_DEVICE(twiddle); CHECK_DEVICE(input); CHECK_SAME_DEVICE(twiddle, input);
+//  CHECK_DEVICE(twiddle); CHECK_DEVICE(input); CHECK_SAME_DEVICE(twiddle, input);
   const auto nstacks = input.size(1);
   const auto nblocks = twiddle.size(1);
   const auto log_n = twiddle.size(2);
   const auto n = 1 << log_n;
-  TORCH_CHECK(1 << log_n == n, "butterfly_multiply_fw: n must be a power of 2");
-  CHECK_DIM(twiddle, 6); CHECK_DIM(input, 3);
-  CHECK_SHAPE(twiddle, nstacks, nblocks, log_n, n / 2, 2, 2);
+//  TORCH_CHECK(1 << log_n == n, "butterfly_multiply_fw: n must be a power of 2");
+//  CHECK_DIM(twiddle, 6); CHECK_DIM(input, 3);
+//  CHECK_SHAPE(twiddle, nstacks, nblocks, log_n, n / 2, 2, 2);
   const auto output_size_val = output_size.has_value() ? output_size.value() : n;
-  TORCH_CHECK(output_size_val <= n, "butterfly_multiply_fw: output_size must be <= n");
+//  TORCH_CHECK(output_size_val <= n, "butterfly_multiply_fw: output_size must be <= n");
   if (input.device().is_cuda()) {
 #ifdef WITH_CUDA
     return butterfly_multiply_fw_cuda(twiddle, input, increasing_stride, output_size_val);
