@@ -21,27 +21,32 @@ class HouseholderQRDirections(DirectionMatrix):
 
 class HouseholderReflection(DirectionMatrix):
 
-    def __init__(self, dct = False, **kwargs):
+    def __init__(self, dct = False, permutation=False, **kwargs):
         super().__init__(**kwargs)
         self.I = torch.eye(self.d, self.l, device=self.device, dtype=self.dtype)
-        self.mult = torch.ones(self.d, device='cuda')
-        self.m_gen = torch.Generator(device='cuda')
+        self.mult = torch.ones(self.d, device=self.device)
+        self.m_gen = torch.Generator(device=self.device)
         self.m_gen.manual_seed(121212)
+        self.permutation=permutation
         self.lrange = range(self.l)
 
         self.dct = dct
 
     def __call__(self):
         v = torch.randn(self.d, generator=self.generator, dtype=self.dtype, device=self.device) 
-        v.div_(v.norm().square())
-        inds = self.mult.multinomial(self.l, replacement=False, generator=self.m_gen)#.to(self.device)
-        P = torch.zeros(self.d, self.l, device=self.device, dtype=self.dtype)
-#        inds = torch.randperm(self.d, device=self.device, generator=self.generator)[:self.l]
-#        P = self.I.add(v.outer(v[:self.l]), alpha=-2)
-        P[inds, self.lrange] = 1.0
-        if self.dct:
-            P = dct(P.T, norm='ortho').T
-        return P#.mul_(self.nrm_const)
+        v.div_(v.norm())
+        
+        if self.permutation:
+            inds = self.mult.multinomial(self.l, replacement=False, generator=self.m_gen)#.to(self.device)
+            P = torch.zeros(self.d, self.l, device=self.device, dtype=self.dtype)
+    #        inds = torch.randperm(self.d, device=self.device, generator=self.generator)[:self.l]
+    #        P = self.I.add(v.outer(v[:self.l]), alpha=-2)
+            P[inds, self.lrange] = 1.0
+            P.add_(v.outer(v[inds]), alpha=-2)# - 2 * 
+            if self.dct:
+                P = dct(P.T, norm='ortho').T
+            return P#.mul_(self.nrm_const)
+        return  (self.I - 2 * v.outer(v[:self.l]).mul_(-2))
         
 
     
@@ -49,8 +54,8 @@ class RandomCoords(DirectionMatrix):
     def __init__(self, dct=False, **kwargs):
         super().__init__(**kwargs)
 #        self.I = torch.zeros(self.d, self.l, device=self.device, dtype=self.dtype)
-        self.mult = torch.ones(self.d, device='cuda')
-        self.m_gen = torch.Generator(device='cuda')
+        self.mult = torch.ones(self.d, device=self.device)
+        self.m_gen = torch.Generator(device=self.device)
         self.m_gen.manual_seed(121212)
         self.lrange = range(self.l)
         self.dct = dct

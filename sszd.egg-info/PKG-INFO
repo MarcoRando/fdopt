@@ -1,6 +1,0 @@
-Metadata-Version: 2.1
-Name: sszd
-Version: 1.0.0
-Summary: SSZD: Structured Stochastic Zero-th Order Descent
-Requires-Python: >=3.6
-License-File: LICENSE

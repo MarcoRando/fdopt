@@ -1,3 +1,4 @@
 # ninja log v5
-0	10003	1674500955268976613	/home/akatsuki/Documents/PhD/efficient_szd/build/temp.linux-x86_64-cpython-310/eszd/directions/src/householder.o	39c59c4f0304552a
-7	9905	1674501047525337308	/home/akatsuki/Documents/PhD/efficient_szd/build/temp.linux-x86_64-cpython-310/eszd/directions/src/householder.o	39c59c4f0304552a
+0	15838	1675726237556061817	/home/akatsuki/Documents/PhD/efficient_szd/build/temp.linux-x86_64-cpython-310/home/akatsuki/Documents/PhD/efficient_szd/c_src/cpu/butterfly_cpu.o	67042316b2cb8821
+0	16397	1675726238116068181	/home/akatsuki/Documents/PhD/efficient_szd/build/temp.linux-x86_64-cpython-310/home/akatsuki/Documents/PhD/efficient_szd/c_src/butterfly.o	2779b7f73c8b4b12
+11	15066	1675726553588012965	/home/akatsuki/Documents/PhD/efficient_szd/build/temp.linux-x86_64-cpython-310/home/akatsuki/Documents/PhD/efficient_szd/c_src/butterfly.o	2779b7f73c8b4b12

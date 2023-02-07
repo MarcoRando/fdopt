@@ -1,10 +1,14 @@
 setup.py
+/home/akatsuki/Documents/PhD/efficient_szd/c_src/butterfly.cpp
+/home/akatsuki/Documents/PhD/efficient_szd/c_src/cpu/butterfly_cpu.cpp
 eszd/__init__.py
 eszd.egg-info/PKG-INFO
 eszd.egg-info/SOURCES.txt
 eszd.egg-info/dependency_links.txt
 eszd.egg-info/top_level.txt
 eszd/directions/__init__.py
+eszd/directions/butterfly.py
+eszd/directions/butterfly_multiply.py
 eszd/directions/directions.py
 eszd/directions/random_directions.py
 eszd/directions/structured_directions.py

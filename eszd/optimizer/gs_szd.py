@@ -28,7 +28,7 @@ class GSSZD(ESZD):
         num_evals = 0
         while k < self.max_iters and (self.budget is None or self.f_evals < self.budget) and  (g is None or g.norm() > self.eps):
             fx = self.target(self.x)
-            alpha = self.alpha(self.t)
+            alpha = self.alpha(k) * self.h
             Pk = self.P()
             g = self._approx_grad(fx, Pk, self.h)
             if self.verbose:

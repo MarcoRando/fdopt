@@ -6,7 +6,12 @@ from eszd.directions import RandomCoords, HouseholderReflection, HouseholderQRDi
 
 import matplotlib.pyplot as plt
 
+
+dint = 'a'
+
 def target(x, z=None):
+    if dint == 'a':
+        return x.square().sum(dim=1, keepdims=True)
     return x[:, 10:100].square().sum(dim=1, keepdims=True)
 
 
@@ -16,17 +21,18 @@ def eval_optimizer(opt, evals, budget):
         it_time = time.time()
         x = opt.step()
         it_time = time.time() - it_time
-        evals.append(target(x).item())
+        evals += [target(x).item() for _ in range(opt.P.l)]#.append(target(x).item())
         ctimes.append(it_time)
     return evals, np.cumsum(ctimes)
 
-d = 10000
-l = 1000
-device = 'cuda'
+d = 1000
+l = 100
+device = 'cpu'
 
 Ps = [
     (RandomCoords(d=d, l=l, dtype=torch.float64, device=device), 'coordinates'), # Random coords
     (HouseholderReflection(d=d, l=l, dtype=torch.float64, device=device), 'random reflector'), # Random coords
+    (HouseholderReflection(d=d, l=l, permutation=True, dtype=torch.float64, device=device), 'random permuted reflector'), # Random coords
     (HouseholderQRDirections(d=d, l=l, dtype=torch.float64, device=device), 'QR'),
     (FastRandomCoords(d=d, l=l, dtype=torch.float64, device=device), 'fast coordinates'), # Fast coords
     (RandomCoords(d=d, l=l, dct=True, dtype=torch.float64, device=device), 'dct'), # DCT coords
@@ -34,7 +40,7 @@ Ps = [
 ]
 
 
-x = torch.full((1, d),1000, dtype=torch.float64, device=device) + 20 * torch.randn(size=(1, d), dtype=torch.float64, device=device)# + 100
+x = torch.full((1, d),100, dtype=torch.float64, device=device) + 20 * torch.randn(size=(1, d), dtype=torch.float64, device=device)# + 100
 
 #evals = [target(x).item()]
 #evals_2 = [target(x).item()]
@@ -43,9 +49,9 @@ x = torch.full((1, d),1000, dtype=torch.float64, device=device) + 20 * torch.ran
 
 def build_opt(target, x, P, a=0.5):
     P()
-    return ESZD(target, x.clone(), P, alpha=lambda t: a, h = lambda t: 1e-7, verbose=True)
+    return ESZD(target, x.clone(), P, alpha=lambda t: a, h = lambda t: 1e-5/t, verbose=True)
 opts = []
-alps = [1.0, 1.0, 5.0, 1.0, 5.0, 5.0]
+alps = [0.10, 0.3, 0.5, 0.45, 0.10, 0.10, 0.10]
 labels = []
 for i, (P, label) in enumerate(Ps):
     opts.append(build_opt(target, x, P, alps[i]))
@@ -68,5 +74,5 @@ ax1.legend()
 ax2.set_yscale("log")
 ax2.legend()
 fig.tight_layout()
-fig.savefig("./test_{}.pdf".format(device), bbox_inches='tight')
+fig.savefig("./test_{}_{}_{}.pdf".format(device, len(Ps)-1, dint), bbox_inches='tight')
 plt.close(fig)

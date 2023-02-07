@@ -1,34 +1,14 @@
 import os
 import torch
 from eszd.directions.directions import DirectionMatrix
-from torch.utils.cpp_extension import load
 
-VERBOSE = False
-def _resolve(name):
-    return os.path.join(os.path.dirname(os.path.realpath(__file__)), name)
+from torch.fft import fft
 
-try:
-    import householder_ref
-except ImportError:
-    if VERBOSE:
-        print('Falling back to JIT compiling householder_ref')
-    torch_householder_cpp = load(
-        name='householder_ref',
-        sources=[
-            _resolve('householder.cpp'),
-        ],
-        verbose=VERBOSE,
-    )
+from torch_dct import dct
 
-class HouseholderReflect(DirectionMatrix):
+from math import pi, sqrt, cos, sin, log2
 
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-
-    def __call__(self):
-        m = householder_ref.get_reflector(self.d, self.l)
-        return m
-
+import numpy as np
 
 class HouseholderQRDirections(DirectionMatrix):
     
@@ -37,18 +17,83 @@ class HouseholderQRDirections(DirectionMatrix):
     
     def __call__(self):
         A = torch.randn(size=(self.d, self.l), generator=self.generator, device=self.device, dtype=self.dtype)
-        return self.nrm_const * torch.linalg.qr(A, mode='reduced')[0]
+        return  torch.linalg.qr(A, mode='reduced')[0]
+
+class HouseholderReflection(DirectionMatrix):
+
+    def __init__(self, dct = False, permutation=False, **kwargs):
+        super().__init__(**kwargs)
+        self.I = torch.eye(self.d, self.l, device=self.device, dtype=self.dtype)
+        self.mult = torch.ones(self.d, device=self.device)
+        self.m_gen = torch.Generator(device=self.device)
+        self.m_gen.manual_seed(121212)
+        self.permutation=permutation
+        self.lrange = range(self.l)
+
+        self.dct = dct
+
+    def __call__(self):
+        v = torch.randn(self.d, generator=self.generator, dtype=self.dtype, device=self.device) 
+        v.div_(v.norm())
+        
+        if self.permutation:
+            inds = self.mult.multinomial(self.l, replacement=False, generator=self.m_gen)#.to(self.device)
+            P = torch.zeros(self.d, self.l, device=self.device, dtype=self.dtype)
+    #        inds = torch.randperm(self.d, device=self.device, generator=self.generator)[:self.l]
+    #        P = self.I.add(v.outer(v[:self.l]), alpha=-2)
+            P[inds, self.lrange] = 1.0
+            P.add_(v.outer(v[inds]), alpha=-2)# - 2 * 
+            if self.dct:
+                P = dct(P.T, norm='ortho').T
+            return P#.mul_(self.nrm_const)
+        return  (self.I - 2 * v.outer(v[:self.l]).mul_(-2))
+        
+
     
 class RandomCoords(DirectionMatrix):
-    def __init__(self, mul_seed=12, mul_device='cpu', **kwargs):
+    def __init__(self, dct=False, **kwargs):
         super().__init__(**kwargs)
-        self.mgen = torch.Generator(device=mul_device)
-        self.mgen.manual_seed(mul_seed)
-        self.inds = torch.ones(self.d, device=mul_device)
-        self.I = torch.zeros((self.d, self.l), device=self.device, dtype=self.dtype)
+#        self.I = torch.zeros(self.d, self.l, device=self.device, dtype=self.dtype)
+        self.mult = torch.ones(self.d, device=self.device)
+        self.m_gen = torch.Generator(device=self.device)
+        self.m_gen.manual_seed(121212)
+        self.lrange = range(self.l)
+        self.dct = dct
+        
+    def _compute_transform(self, P):
+        return dct(P, norm='ortho').T
     
     def __call__(self):
-        if self.d == self.l:
-            return self.I
-        inds = self.inds.multinomial(self.l, replacement=False, generator=self.mgen)
-        return self.nrm_const * self.I[:, inds]
+#        inds = torch.randperm(self.d, device=self.device, generator=self.generator)[:self.l]
+        inds = self.mult.multinomial(self.l, replacement=False, generator=self.m_gen).to(self.device)
+        P = torch.zeros(self.d, self.l, device=self.device, dtype=self.dtype)
+ #       self.I[inds, self.lrange] = 1.0
+        P[inds, self.lrange] = 1.0
+        if self.dct:
+            P = self._compute_transform(P.T)
+        return P#.mul_(self.nrm_const)
+
+class FastRandomCoords(DirectionMatrix):
+    def __init__(self, dct = False, **kwargs):
+        super().__init__(**kwargs)
+        self.I = torch.eye(self.d, self.d, device = self.device, dtype = self.dtype)
+        self.idx = torch.randperm(self.d, device=self.device, generator=self.generator) 
+        self.t = 0
+        self.dct = dct
+        
+    def _compute_transform(self, P):
+        return dct(P, norm='ortho').T
+    
+    def __call__(self):
+        if (self.t + 1) >= (self.d // self.l):
+            self.t = 0
+            self.idx = torch.randperm(self.d, device=self.device, generator=self.generator)
+        else:
+            self.t += 1
+#        print(self.d, self.l * self.t)
+#        print(self.t, self.l, self.d // self.l, self.idx[:10], self.idx[self.t * self.l : (self.l * (self.t+1))])
+        P = self.I[:, self.idx[self.t * self.l : self.l * (self.t+1)]]
+        if self.dct:
+            P = self._compute_transform(P.T)
+            P.div_(P.norm(dim=0))
+        return P#.mul_(self.nrm_const)
