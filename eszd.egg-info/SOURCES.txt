@@ -1,6 +1,6 @@
 setup.py
-/home/mrando/efficient_szd/c_src/butterfly.cpp
-/home/mrando/efficient_szd/c_src/cpu/butterfly_cpu.cpp
+/home/akatsuki/Documents/PhD/efficient_szd/c_src/butterfly.cpp
+/home/akatsuki/Documents/PhD/efficient_szd/c_src/cpu/butterfly_cpu.cpp
 eszd/__init__.py
 eszd.egg-info/PKG-INFO
 eszd.egg-info/SOURCES.txt
@@ -13,6 +13,7 @@ eszd/directions/directions.py
 eszd/directions/random_directions.py
 eszd/directions/structured_directions.py
 eszd/optimizer/__init__.py
+eszd/optimizer/esvrzd.py
 eszd/optimizer/eszd.py
 eszd/optimizer/gs_szd.py
 eszd/optimizer/optimizer.py

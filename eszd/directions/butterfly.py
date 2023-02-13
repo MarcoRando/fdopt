@@ -27,7 +27,7 @@ class Butterfly(nn.Module):
         nblocks: number of B or B^T blocks. The B and B^T will alternate.
     """
 
-    def __init__(self, in_size, out_size, increasing_stride=True, init='randn', nblocks=1):
+    def __init__(self, in_size, out_size, increasing_stride=True, init='randn', dtype=torch.float32, nblocks=1):
         super().__init__()
         self.in_size = in_size
         self.log_n = log_n = int(math.ceil(math.log2(in_size)))
@@ -37,7 +37,7 @@ class Butterfly(nn.Module):
         self.increasing_stride = increasing_stride
         assert nblocks >= 1
         self.nblocks = nblocks
-        dtype = torch.get_default_dtype() #if not self.complex else real_dtype_to_complex[torch.get_default_dtype()]
+        self.dtype = dtype#torch.get_default_dtype() #if not self.complex else real_dtype_to_complex[torch.get_default_dtype()]
         twiddle_shape = (self.nstacks, nblocks, log_n, n // 2, 2, 2)
         if isinstance(init, torch.Tensor):
             self.init = None

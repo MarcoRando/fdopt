@@ -75,7 +75,7 @@ std::tuple<torch::Tensor, torch::Tensor>
   const auto log_n = twiddle.size(2);
   const auto n = 1 << log_n;
   const auto output_size = grad.size(2);
-  TORCH_CHECK(1 << log_n == n, "butterfly_multiply_bw: n must be a power of 2");
+  //TORCH_CHECK(1 << log_n == n, "butterfly_multiply_bw: n must be a power of 2");
   CHECK_DIM(twiddle, 6); CHECK_DIM(input, 3); CHECK_DIM(grad, 3);
   CHECK_SHAPE(twiddle, nstacks, nblocks, log_n, n / 2, 2, 2);
   CHECK_SHAPE(grad, batch_size, nstacks, output_size);

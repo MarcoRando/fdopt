@@ -26,7 +26,7 @@ torch::Tensor butterfly_multiply_fw_cpu(const torch::Tensor twiddle,
   const int input_size = input.size(2);
   auto output = torch::empty({batch_size, nstacks, n},
                              torch::dtype(input.dtype()).device(input.device()));
-  AT_DISPATCH_FLOATING_AND_COMPLEX_TYPES(input.scalar_type(), "butterfly_multiply_fw_cpu", [&] {
+  AT_DISPATCH_FLOATING_TYPES(input.scalar_type(), "butterfly_multiply_fw_cpu", [&] {
     const auto twiddle_a = twiddle.accessor<scalar_t, 6>();
     const auto input_a = input.accessor<scalar_t, 3>();
     auto output_a = output.accessor<scalar_t, 3>();
