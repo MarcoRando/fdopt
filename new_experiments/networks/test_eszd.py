@@ -8,10 +8,11 @@ from eszd.directions import RandomCoords
 
 from three_layer import ThreeLayerNetwork
 
-d = 8
-l = 8
+in_features = 8
+out_features = 4
 
 dtype = torch.float32
+device='cuda'
 
 def eval_policy(policy, env, n_steps=200):
     
@@ -28,8 +29,18 @@ def eval_policy(policy, env, n_steps=200):
 
     return total_reward
     
+policy = ThreeLayerNetwork(in_features = in_features, out_features = out_features, dtype=dtype, device=device)
+
+#P = RandomCoords(d = d, l = l, dtype = dtype)
+
+x = torch.ones((1, in_features), device=device)
 
 
-policy = ThreeLayerNetwork(d = d, l = l)
+for i in range(len(policy.model)):
+    if isinstance(policy.model[i], torch.nn.Linear):
+        print(policy.model[i].weight.shape)
 
-P = RandomCoords(d = d, l = l, dtype = dtype)
+#def target(w, z_sampler = None):
+#    policy.model
+
+
