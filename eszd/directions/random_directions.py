@@ -9,7 +9,7 @@ class GaussianDirections(DirectionMatrix):
         super().__init__(**kwargs)
     
     def __call__(self):
-        return torch.randn(self.d, self.l, generator=self.generator, device=self.device, dtype=self.dtype)
+        return torch.randn(self.l, self.d, generator=self.generator, device=self.device, dtype=self.dtype)
        
        
 class SphericalDirections(DirectionMatrix):
@@ -20,7 +20,7 @@ class SphericalDirections(DirectionMatrix):
     def __call__(self):
         A = torch.randn(size=(self.d, self.l), generator=self.generator, device=self.device, dtype=self.dtype)
         A /= torch.linalg.norm(A, 2, dim=0)
-        return  A
+        return  A.T
     
 class RadamacherDirections(DirectionMatrix):
     
@@ -28,5 +28,5 @@ class RadamacherDirections(DirectionMatrix):
         super().__init__(**kwargs)
     
     def __call__(self):
-        return  2 * (torch.rand(size=(self.d, self.l), generator=self.generator, device=self.device, dtype=self.dtype) > 0.5) - 1
+        return  (2.0 * (torch.rand(size=(self.l, self.d), generator=self.generator, device=self.device, dtype=self.dtype) > 0.5) - 1.0).to(dtype=self.dtype)
         
