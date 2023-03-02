@@ -5,18 +5,15 @@ from three_layer import ThreeLayerNetwork
 import os
 from gym.wrappers.monitoring.video_recorder import VideoRecorder
 import uuid
-from pyvirtualdisplay import Display
-display = Display(visible=False, size=(1400, 900))
-_ = display.start()
 
 def eval_policy(policy, env, n_steps=200, out="./"):
     
     total_reward = 0
-#    video = VideoRecorder(env, 'test.mp4')
+    video = VideoRecorder(env, f'{out}/random_failure.mp4')
     obs, _ = env.reset()
     for i in range(n_steps):
         env.render()
- #       video.capture_frame()
+        video.capture_frame()
         action = policy.predict(torch.tensor(obs).reshape(1, -1), scale="softmax")
         new_obs, reward, done, _, _ = env.step(action.item())        
         total_reward = total_reward + reward
@@ -44,11 +41,11 @@ model = "../models/test_LunarLander_v3.pkl"
 
 mname = model.split("/")[-1].split(".")[0]
 
-env = gym.make("LunarLander-v2")
+env = gym.make("LunarLander-v2", render_mode='rgb_array')
 
-os.makedirs(f'videos/{mname}/', exist_ok=True)
+os.makedirs(f'videos/{mname}', exist_ok=True)
 
 #env = VideoRecorder(env, f'videos/{mname}/' + str(uuid.uuid4()))
 
-print(eval_policy(policy, env, n_steps=1600, out=f'videos/{mname}/'))
+print(eval_policy(policy, env, n_steps=10000, out=f'videos/{mname}'))
 env.close()
