@@ -20,8 +20,7 @@ class Optimizer:
     @property
     def l(self):
         return self.P.l
-    
-    
+        
            
     def step(self):
         pass

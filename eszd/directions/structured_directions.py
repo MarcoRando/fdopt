@@ -1,7 +1,6 @@
 import os
 import torch
 from eszd.directions.directions import DirectionMatrix
-from eszd.directions.butterfly import Butterfly
 from torch.fft import fft
 
 from torch_dct import dct
@@ -17,7 +16,7 @@ class HouseholderQRDirections(DirectionMatrix):
     
     def __call__(self):
         A = torch.randn(size=(self.d, self.l), generator=self.generator, device=self.device, dtype=self.dtype)
-        return  torch.linalg.qr(A, mode='reduced')[0]
+        return  torch.linalg.qr(A, mode='reduced')[0].T
 
 
 @torch.jit.script
@@ -32,7 +31,6 @@ class HouseholderReflection(DirectionMatrix):
 
     def __init__(self, dct = False, permutation=False, num_reflection=1, **kwargs):
         super().__init__(**kwargs)
-        self.I = torch.eye(self.d, self.l, device=self.device, dtype=self.dtype)   
         self.mult = torch.ones(self.d, device=self.device)
         self.m_gen = torch.Generator(device=self.device)
         self.m_gen.manual_seed(121212)
@@ -43,12 +41,9 @@ class HouseholderReflection(DirectionMatrix):
         self.dct = dct
 
     def _generate_reflection(self, v):
-        if self.permutation:
-            inds = self.mult.multinomial(self.l, replacement=False, generator=self.m_gen)#.to(self.device)
-            P = torch.zeros(self.d, self.l, device=self.device, dtype=self.dtype)
-            P[inds, self.lrange] = 1.0
-        else:
-            P = self.I
+        inds = self.mult.multinomial(self.l, replacement=False, generator=self.m_gen)#.to(self.device)
+        P = torch.zeros(self.d, self.l, device=self.device, dtype=self.dtype)
+        P[inds, self.lrange] = 1.0
         return build_reflection(P, v, self.l)
         
 
@@ -56,19 +51,8 @@ class HouseholderReflection(DirectionMatrix):
         v = torch.rand(self.d, self.num_reflection, generator=self.generator, dtype=self.dtype, device=self.device) 
         v.div_(v.norm(dim=0))
         R = self._generate_reflection(v[:, 0])
-        for i in range(1, self.num_reflection):
-            R = multiply_reflections(R, self._generate_reflection(v[:, i]))
-#        if self.permutation:
-#            inds = self.mult.multinomial(self.l, replacement=False, generator=self.m_gen)#.to(self.device)
-#            P = torch.zeros(self.d, self.l, device=self.device, dtype=self.dtype)
-#            P[inds, self.lrange] = 1.0
-#            R_new = build_reflection(P, v, self.l)
-#        else:
-#            P.add_(v.outer(v[inds]), alpha=-2)# - 2 * 
-#            if self.dct:
-#                P = dct(P.T, norm='ortho').T
-#            return P#.mul_(self.nrm_const)
-        return  R# (self.I - 2 * v.outer(v[:self.l]))
+       # print(R.shape)
+        return  R.T
        
 
     
@@ -86,11 +70,9 @@ class RandomCoords(DirectionMatrix):
         return dct(P, norm='ortho').T
     
     def __call__(self):
-#        inds = torch.randperm(self.d, device=self.device, generator=self.generator)[:self.l]
         inds = self.mult.multinomial(self.l, replacement=False, generator=self.m_gen).to(self.device)
-        P = torch.zeros(self.d, self.l, device=self.device, dtype=self.dtype)
- #       self.I[inds, self.lrange] = 1.0
-        P[inds, self.lrange] = 1.0
+        P = torch.zeros(self.l, self.d, device=self.device, dtype=self.dtype)
+        P[self.lrange, inds] = 1.0
         if self.dct:
             P = self._compute_transform(P.T)
         return P#.mul_(self.nrm_const)
@@ -112,9 +94,7 @@ class FastRandomCoords(DirectionMatrix):
             self.idx = torch.randperm(self.d, device=self.device, generator=self.generator)
         else:
             self.t += 1
-#        print(self.d, self.l * self.t)
-#        print(self.t, self.l, self.d // self.l, self.idx[:10], self.idx[self.t * self.l : (self.l * (self.t+1))])
-        P = self.I[:, self.idx[self.t * self.l : self.l * (self.t+1)]]
+        P = self.I[self.idx[self.t * self.l : self.l * (self.t+1)], :]
         if self.dct:
             P = self._compute_transform(P.T)
             P.div_(P.norm(dim=0))
