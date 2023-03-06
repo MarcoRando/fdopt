@@ -25,7 +25,7 @@ class SparseMatrix(TargetFunction):
         super().__init__("SparseMatrix", d)
         self.gen = torch.Generator(device=device)
         self.gen.manual_seed(seed)
-        self.A = torch.randn((l_dim, d), device=device, dtype=dtype)
+        self.A = torch.randn((l_dim, d), device=device, dtype=dtype, generator=self.gen)
         
     def __call__(self, x, z=None):
         return torch.linalg.norm(x @ self.A.T, dim=1, ord=2).square()
@@ -36,8 +36,22 @@ class SparseSphere(TargetFunction):
         super().__init__("ScalarProd", d)
         self.gen = torch.Generator(device=device)
         self.gen.manual_seed(seed)
-        self.inds = range(l_dim)
+        self.inds = torch.ones(d, dtype=dtype, device = device).multinomial(l_dim, generator=self.gen, replacement=False)
         
     def __call__(self, x, z=None):
-        return x[:, -1].square()#.sum(dim=1)
+        return x[:, self.inds].square().sum(dim=1)
 
+class Rosenbrock(TargetFunction):
+    def __init__(self, d: int) -> None:
+        super().__init__("Rosenbrock", d)
+    
+    def __call__(self, x, z=None):
+#        print("SHAPE: ", x.shape)
+#        print("x: {}".format(x))
+        ris = torch.zeros((x.shape[0]), dtype = x.dtype, device=x.device)
+        for i in range(self.d - 1):
+            t1 = 100 * ((x[:, i + 1] - (x[:, i]**2)) **2)
+            t2 = (x[:, i] - 1)**2
+            ris += (t1 + t2)
+        return ris
+        

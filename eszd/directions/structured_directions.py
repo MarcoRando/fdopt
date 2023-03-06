@@ -57,13 +57,14 @@ class HouseholderReflection(DirectionMatrix):
 
     
 class RandomCoords(DirectionMatrix):
-    def __init__(self, dct=False, **kwargs):
+    def __init__(self, dct=False, sign = False,**kwargs):
         super().__init__(**kwargs)
 #        self.I = torch.zeros(self.d, self.l, device=self.device, dtype=self.dtype)
         self.mult = torch.ones(self.d, device=self.device)
         self.m_gen = torch.Generator(device=self.device)
         self.m_gen.manual_seed(121212)
         self.lrange = range(self.l)
+        self.sign = sign
         self.dct = dct
         
     def _compute_transform(self, P):

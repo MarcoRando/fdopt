@@ -8,6 +8,7 @@ class Optimizer:
     def __init__(self, target : Callable, x : Tensor, P : DirectionMatrix, verbose : bool = False) -> None:
         self.target = target
         self.x = x
+        self.init_x = x.clone()
         self.P = P
         self.verbose = verbose
         self.f_evals = 0
@@ -31,3 +32,4 @@ class Optimizer:
             self.target = target
         self.f_evals = 0
         self.k = 1
+        self.x = self.init_x.clone()
