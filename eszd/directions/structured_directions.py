@@ -48,7 +48,7 @@ class HouseholderReflection(DirectionMatrix):
         
 
     def __call__(self):
-        v = torch.rand(self.d, self.num_reflection, generator=self.generator, dtype=self.dtype, device=self.device) 
+        v = torch.randn(self.d, 1, generator=self.generator, dtype=self.dtype, device=self.device) 
         v.div_(v.norm(dim=0))
         R = self._generate_reflection(v[:, 0])
        # print(R.shape)

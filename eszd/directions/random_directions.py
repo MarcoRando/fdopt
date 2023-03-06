@@ -28,5 +28,13 @@ class RadamacherDirections(DirectionMatrix):
         super().__init__(**kwargs)
     
     def __call__(self):
-        return  (2.0 * (torch.rand(size=(self.l, self.d), generator=self.generator, device=self.device, dtype=self.dtype) > 0.5) - 1.0).to(dtype=self.dtype)
+        P = torch.rand(size=(self.l, self.d), generator=self.generator, device=self.device, dtype=self.dtype) > 0.5
+        return  (2.0 * P - 1.0).to(dtype=self.dtype)
         
+class OnesDirections(DirectionMatrix):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.d = torch.ones((self.l, self.d), generator = self.generator, device = self.device, dtype = self.dtype)
+    
+    def __call__(self):
+        return self.d

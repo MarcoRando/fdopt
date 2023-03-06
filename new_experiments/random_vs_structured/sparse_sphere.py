@@ -4,7 +4,7 @@ import numpy as np
 import sys
 
 from eszd import ESZD
-from eszd.directions import GaussianDirections, SphericalDirections, RadamacherDirections, RandomCoords, HouseholderReflection 
+from eszd.directions import GaussianDirections, SphericalDirections, RadamacherDirections, RandomCoords, HouseholderReflection, HouseholderQRDirections
 
 import matplotlib.pyplot as plt
 
@@ -13,9 +13,9 @@ from synthetic_utils import Sphere, SparseMatrix, SparseSphere
 
 from time import time
 
-def plot_results(results, out):
+def plot_results(fun_name, results, out):
     fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(20, 7))
-    for (label, fvals, ctime) in results:
+    for (label, fvals, _, ctime) in results:
         ax1.plot(range(len(fvals)), fvals, '-', label=label, lw=3)
         ax2.plot(range(len(ctime)), ctime, '-', label=label, lw=3)
         ax3.plot(ctime, fvals, '-', label=label)
@@ -32,6 +32,19 @@ def plot_results(results, out):
     fig.tight_layout()
     fig.savefig(f"{out}.pdf")
     plt.close(fig)
+    
+    fig, ax = plt.subplots(1, 1, figsize=(12, 7))
+    ax.set_title(fun_name, fontsize=20)
+    for (label, _, std, _) in results:
+        ax.plot(range(len(std[:400])), std[:400], '--', label=label, lw=3)
+    ax.legend(fontsize=16)
+    ax.set_xlabel("$k$", fontsize=18)
+    ax.set_ylabel("std $f(x_k)$", fontsize=18)
+    #ax.set_yscale("log")
+    fig.tight_layout()
+    fig.savefig(f"{out}_std.pdf")
+    plt.close(fig)
+
     
 
 
@@ -51,25 +64,26 @@ def run_experiment(opt, T = 100, reps=1):
             fvals[r].append(opt.target(x).item())
         opt.reset()
 #        print(opt.x)
-    return np.mean(fvals, axis=0), np.cumsum(ctimes, axis=1).mean(axis=0)      
+    return np.mean(fvals, axis=0), np.std(fvals, axis=0), np.cumsum(ctimes, axis=1).mean(axis=0)      
         
         
 
 
-d = 2
-l = d
+d = 15
+l = 10
 dtype = torch.float64
-device='cpu'
+device='cuda'
 
-fun_1 = SparseSphere(d, 2)
-x0 = torch.full((1, d), 10.0, dtype=dtype, device=device)
+fun_1 = SparseSphere(d, 4)
+x0 = torch.full((1, d), 1000.0, dtype=dtype, device=device)
 
-alpha = lambda k : 0.3
-h = lambda k: 1e-7/np.sqrt(k)
+alpha = lambda k : 0.365
+h = lambda k: 1e-7#/np.sqrt(k)
 
 alpha_g = lambda k : .1
 alpha_sp = lambda _ : 0.5
-alpha_rad = lambda _ : 0.025
+alpha_qr = lambda _ : 0.5
+alpha_rad = lambda _ : 0.0245
 
 
 P1 = GaussianDirections(d=d, l=l, dtype=dtype, device=device)
@@ -77,6 +91,7 @@ P2 = SphericalDirections(d=d, l=l, dtype=dtype, device=device)
 P3 = RandomCoords(d=d, l=l, dtype=dtype, device=device)
 P4 = HouseholderReflection(d=d, l=l, dtype=dtype, device=device)
 P5 = RadamacherDirections(d=d, l=l, dtype=dtype, device=device)
+P6 = HouseholderQRDirections(d = d, l =l, dtype=dtype, device=device)
 
 time()
 P1()
@@ -89,24 +104,27 @@ opt_2 = ESZD(target = fun_1, x = x0.clone(), alpha=alpha_sp, h=h, P=P2)
 opt_3 = ESZD(target = fun_1, x = x0.clone(), alpha=alpha, h=h, P=P3)
 opt_4 = ESZD(target = fun_1, x = x0.clone(), alpha=alpha, h=h, P=P4)
 opt_5 = ESZD(target = fun_1, x = x0.clone(), alpha=alpha_rad, h=h, P=P5)
+opt_6 = ESZD(target = fun_1, x = x0.clone(), alpha=alpha_qr, h=h, P=P6)
 
 T = 200
 
-fvals_1, ctimes_1 = run_experiment(opt_1, T = T, reps=5)
-fvals_2, ctimes_2 = run_experiment(opt_2, T = T, reps=5)
-fvals_3, ctimes_3 = run_experiment(opt_3, T = T, reps=5)
-fvals_4, ctimes_4 = run_experiment(opt_4, T = T, reps=5)
-fvals_5, ctimes_5 = run_experiment(opt_5, T = T, reps=5)
+#fvals_1, ctimes_1 = run_experiment(opt_1, T = T, reps=5)
+fvals_2, std_2, ctimes_2 = run_experiment(opt_2, T = T, reps=5)
+fvals_3, std_3, ctimes_3 = run_experiment(opt_3, T = T, reps=5)
+fvals_4, std_4, ctimes_4 = run_experiment(opt_4, T = T, reps=5)
+fvals_5, std_5, ctimes_5 = run_experiment(opt_5, T = T, reps=5)
+fvals_6, std_6, ctimes_6 = run_experiment(opt_6, T = T, reps=5)
 
 results = [
-    ('Random Gaussian', fvals_1, ctimes_1),
-    ('Random spherical', fvals_2, ctimes_2),
-    ('Random coordinates', fvals_3, ctimes_3),
-    ('Random reflector', fvals_4, ctimes_4),
-    ('Random Rademacher', fvals_5, ctimes_5),
+ #   ('Random Gaussian', fvals_1, ctimes_1),
+    ('Random spherical',   fvals_2, std_2,ctimes_2),
+    ('Random coordinates', fvals_3, std_3,ctimes_3),
+    ('Random reflector',   fvals_4, std_4,ctimes_4),
+    ('Random Rademacher',  fvals_5, std_5,ctimes_5),
+    ('QR', fvals_6, std_6, ctimes_6),
 ]
 
 
-plot_results(results, "./ss_comp_{}_{}".format(device, d))
+plot_results("Sparse Sphere {}".format(d), results, "./ss_comp_{}_{}_{}".format(device, d, l))
 
 
