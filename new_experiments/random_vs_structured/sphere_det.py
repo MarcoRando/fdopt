@@ -36,32 +36,40 @@ def plot_results(results, out):
 
 
 
-def run_experiment(opt, T = 100):
-    fvals = [opt.target(opt.x).item()]
-    ctimes = [0.0]
-    for k in range(T):
-        it_time = time()
-        x = opt.step()
-        it_time = time() - it_time
-        ctimes.append(it_time)
-        fvals.append(opt.target(x).item())
-    return fvals, np.cumsum(ctimes)        
+def run_experiment(opt, T = 100, reps=1):
+    fvals = [] #[opt.target(opt.x).item()]
+    ctimes = []
+    for r in range(reps):
+        fvals.append([opt.target(opt.x).item()])
+        ctimes.append([0.0])
+        for k in range(T):
+            it_time = time()
+            x = opt.step()
+            it_time = time() - it_time
+#            print("[--] r: {}, y: {}".format(r, opt.target(x)))
+            ctimes[r].append(it_time)
+            fvals[r].append(opt.target(x).item())
+        opt.reset()
+#        print(opt.x)
+    return np.mean(fvals, axis=0), np.cumsum(ctimes, axis=1).mean(axis=0)      
         
         
 
 
-d = 100
-l = d // 10
+d = 15
+l = d
 dtype = torch.float64
-device='cuda'
+device='cpu'
 
-fun_1 = SparseMatrix(d, 4, dtype=dtype, device=device)
+fun_1 = Sphere(d)
 x0 = torch.full((1, d), 100.0, dtype=dtype, device=device)
 
-alpha = lambda _ : 0.01
-h = lambda k: 1e-7/k
+alpha = lambda _ : 0.2
+h = lambda k: 1e-7#/k
 
-alpha_g = lambda _ : 1e-5
+alpha_g = lambda _ : 1e-2
+alpha_sp = lambda _ : 0.1
+alpha_rad = lambda _ : 0.01
 
 
 P1 = GaussianDirections(d=d, l=l, dtype=dtype, device=device)
@@ -77,18 +85,18 @@ P3()
 P4()
 
 opt_1 = ESZD(target = fun_1, x = x0.clone(), alpha=alpha_g, h=h, P=P1)
-opt_2 = ESZD(target = fun_1, x = x0.clone(), alpha=lambda _:5e-4, h=h, P=P2)
+opt_2 = ESZD(target = fun_1, x = x0.clone(), alpha=alpha_sp, h=h, P=P2)
 opt_3 = ESZD(target = fun_1, x = x0.clone(), alpha=alpha, h=h, P=P3)
 opt_4 = ESZD(target = fun_1, x = x0.clone(), alpha=alpha, h=h, P=P4)
-opt_5 = ESZD(target = fun_1, x = x0.clone(), alpha=alpha_g, h=h, P=P5)
+opt_5 = ESZD(target = fun_1, x = x0.clone(), alpha=alpha_rad, h=h, P=P5)
 
 T = 1000
 
-fvals_1, ctimes_1 = run_experiment(opt_1, T = T)
-fvals_2, ctimes_2 = run_experiment(opt_2, T = T)
-fvals_3, ctimes_3 = run_experiment(opt_3, T = T)
-fvals_4, ctimes_4 = run_experiment(opt_4, T = T)
-fvals_5, ctimes_5 = run_experiment(opt_5, T = T)
+fvals_1, ctimes_1 = run_experiment(opt_1, T = T, reps=5)
+fvals_2, ctimes_2 = run_experiment(opt_2, T = T, reps=5)
+fvals_3, ctimes_3 = run_experiment(opt_3, T = T, reps=5)
+fvals_4, ctimes_4 = run_experiment(opt_4, T = T, reps=5)
+fvals_5, ctimes_5 = run_experiment(opt_5, T = T, reps=5)
 
 results = [
     ('Random Gaussian', fvals_1, ctimes_1),
@@ -99,6 +107,6 @@ results = [
 ]
 
 
-plot_results(results, "./spmat_comp_{}".format(device))
+plot_results(results, "./spmat_comp_{}_{}".format(device, d))
 
 

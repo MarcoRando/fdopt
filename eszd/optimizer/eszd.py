@@ -1,4 +1,4 @@
-from torch import Tensor, finfo, empty
+from torch import Tensor, finfo, empty, zeros
 from typing import Callable, Any
 
 from eszd.optimizer import Optimizer
@@ -23,6 +23,15 @@ class ESZD(Optimizer):
     def approx_grad(self, Pk, h):
         fx = self.target(self.x, self.z)
         d = self.target(self.x + h * Pk, self.z).add_(fx, alpha=-1).div_(h)
+#        print("\t[ESZD] evals:")
+#        g = zeros((1, self.d), dtype=self.P.dtype, device=self.P.device)
+#        for i in range(Pk.shape[0]):
+#            g += (self.target(self.x + h * Pk[i, :]) - fx).div(h).item() * Pk[i,:]
+#            print("i: {}, x: {}\tPK: {}".format(i, self.x, Pk[i, :]))
+#            dd = self.target(self.x + h * Pk[i, :]) - fx
+#            print("\t\t", dd)
+#            print("\t\t",dd/h)
+#            print("-"*33)
         return Pk.T.mv(d)
               
     def step(self):
@@ -30,6 +39,7 @@ class ESZD(Optimizer):
         h = max(self.h(self.k), self.min_val)
         alpha = max(self.alpha(self.k), self.min_val)
         g = self.approx_grad(Pk, h)
+#        print("[ESZD] x: {}\tg: {}\talpha: {}".format(self.x, g, alpha))
         self.x.add_(g, alpha=-alpha)
         self.f_evals += self.l + 1
         self.k += 1
