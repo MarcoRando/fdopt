@@ -1,10 +1,10 @@
 from setuptools import setup, find_packages
 
 setup(
-    name="eszd",
-    version="1.0.0",
-    description="ESZD: Efficient Structured Zeroth Order Descent",
-    python_requires='>=3.8',
+    name="fdopt",
+    version="0.0.1",
+    description="FDOpt: Finite-Differences Optimization",
+    python_requires='>=3.10',
     setup_requires=[
         'setuptools>=18.0'
     ],
