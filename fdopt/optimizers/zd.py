@@ -1,9 +1,7 @@
-from typing import Callable, Dict, Iterable
 import numpy as np
-from fdopt.direction_generators import DirectionGenerator
 
 from fdopt.optimizers.opt import Optimizer
-from fdopt.direction_generators.generator import DirectionGenerator
+from typing import Callable, Dict, Iterable
 from fdopt.stepsize.standard_stepsizes import Stepsize
 
 from concurrent.futures import ProcessPoolExecutor as PPE, ThreadPoolExecutor as TPE
@@ -32,7 +30,6 @@ class ZD(Optimizer):
         for i, (f_plus, f_minus) in enumerate(zip(values, left_values)):
             g +=  (f_plus - f_minus) * P[i] 
         return (self.d/self.l) * g/(2*h)
-
   
     def _compute_single_fd(self, f : Callable, x : np.ndarray, h : float, P : np.ndarray, values : Iterable, executor: PPE | TPE | None = None):
         g = np.zeros(self.d)
@@ -40,7 +37,6 @@ class ZD(Optimizer):
             g +=  (f_next * P[i]) 
         return (self.d/self.l) * g / h 
         
-    
     
     def optimize(self, f: Callable, x_0: np.ndarray, T: int = 100, return_trace : bool = False) -> Dict:
         x = x_0.copy()

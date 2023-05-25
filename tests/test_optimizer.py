@@ -7,12 +7,12 @@ from fdopt.direction_generators import CoordinateDirections
 def target(x):    
     return np.sum(x**2)
 
-d, l = 3, 2
-T = 5
+d, l = 12, 2
+T = 10
 
 h = ConstantStepsize(gamma_0 = 1e-10)
 P = CoordinateDirections(d = d, l = l)
-gamma = ConstantStepsize(gamma_0 = 0.25)
+gamma = ConstantStepsize(gamma_0 = 0.1 * l/d)
 
 opt = ZD(gamma=gamma, h=h, P=P, g_estimator='central', parallel_execution=('thread',4))
 
