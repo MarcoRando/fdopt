@@ -4,7 +4,7 @@ from typing import Any
 
 class BenchmarkFunction:
     
-    def __init__(self, name : str, d : int, x_star : torch.Tensor | None = None, fx_star : float | None = None, sigma : float = 0.0, seed : int = 121212, device : str = 'cpu' , dtype : torch.dtype = torch.float64) -> None:
+    def __init__(self, name : str, d : int, x_star : np.ndarray | None = None, fx_star : float | None = None, sigma : float = 0.0, seed : int = 121212, device : str = 'cpu' , dtype : np.dtype = np.float64) -> None:
         assert x_star is None or x_star.shape[1] == d
         self.name = name
         self.fx_star = fx_star
@@ -12,14 +12,13 @@ class BenchmarkFunction:
         self.sigma = sigma
         self.device = device
         self.dtype = dtype
-        self.generator = torch.Generator(device=device)
-        self.generator.manual_seed(seed)
+        self.rnd_state = np.random.RandomState(seed=seed)
         
     def add_noise(self, fx):
-        return fx + self.sigma * torch.randn(1, device=self.device, generator=self.generator, dtype = self.dtype)
+        return fx + self.sigma * self.rnd_state.randn(1)
         
         
-    def __call__(self, x : torch.Tensor,  z : Any = None) -> float:
+    def __call__(self, x : np.ndarray,  z : Any = None) -> float:
         pass
 
     def __str__(self) -> str:

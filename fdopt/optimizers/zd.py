@@ -1,4 +1,5 @@
 import torch
+import numpy as np
 
 from fdopt.optimizers.opt import Optimizer
 from typing import Callable, Dict, Iterable
@@ -16,30 +17,30 @@ class ZD(Optimizer):
         self.gamma = gamma
         self.h = h
 
-    def _compute_forward_fd(self, f : Callable, x : torch.Tensor, h : float, P : torch.Tensor, values : Iterable, executor: PPE | TPE | None = None):
-        g = torch.zeros(self.d, dtype=self.P.dtype, device=self.P.device)
+    def _compute_forward_fd(self, f : Callable, x : np.ndarray, h : float, P : np.ndarray, values : Iterable, executor: PPE | TPE | None = None):
+        g = np.zeros(self.d, dtype=self.P.dtype)
         fx = f(x) if executor is None else executor.submit(f, x).result()
         for i, f_next in enumerate(values):
             g +=  (f_next - fx) * P[i] 
         return (self.d/self.l) * g/h
 
-    def _compute_central_fd(self, f : Callable, x : torch.Tensor, h : float, P : torch.Tensor, values : Iterable, executor: PPE | TPE | None = None):
-        g = torch.zeros(self.d, dtype=self.P.dtype, device=self.P.device)
+    def _compute_central_fd(self, f : Callable, x : np.ndarray, h : float, P : np.ndarray, values : Iterable, executor: PPE | TPE | None = None):
+        g = np.zeros(self.d, dtype=self.P.dtype)
         near_points = [x - h * P[i] for i in range(self.l)]
         left_values = map(f, near_points) if executor is None else executor.map(f, near_points)
         for i, (f_plus, f_minus) in enumerate(zip(values, left_values)):
             g +=  (f_plus - f_minus) * P[i] 
         return (self.d/self.l) * (g/(2*h))
   
-    def _compute_single_fd(self, f : Callable, x : torch.Tensor, h : float, P : torch.Tensor, values : Iterable, executor: PPE | TPE | None = None):
-        g = torch.zeros(self.d, dtype=self.P.dtype, device=self.P.device)
+    def _compute_single_fd(self, f : Callable, x : np.ndarray, h : float, P : np.ndarray, values : Iterable, executor: PPE | TPE | None = None):
+        g = np.zeros(self.d, dtype=self.P.dtype)
         for i, f_next in enumerate(values):
             g +=  (f_next * P[i]) 
         return (self.d/self.l) * g / h 
         
     
-    def optimize(self, f: Callable, x_0: torch.Tensor, T: int = 100, return_trace : bool = False) -> Dict:
-        x = x_0.clone()
+    def optimize(self, f: Callable, x_0: np.ndarray, T: int = 100, return_trace : bool = False) -> Dict:
+        x = x_0.copy()
         trace = [(x, f(x))] if return_trace else None
 
         executor = self.executor_cls(max_workers = self.num_workers) if self.executor_cls is not None else None
