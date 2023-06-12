@@ -42,7 +42,7 @@ directions = [CoordinateDirections, GaussianDirections, SphericalDirections, QRD
 for (i, label) in enumerate(labels):
     results[label] = {}
     for d in dimensions:
-        gammas = [1/2, 1/d, 1/2, 1/2]
+        gammas = [0.99, 1/d, 1/2, 1/2]
         values, traces = execute_experiment(d, directions[i], gammas[i], f_min = 0.0, reps=10, T = 100)
         mu_fstar, std_fstar = values.mean(), values.std()
         mu_trace, std_trace = traces.mean(axis=0), traces.std(axis=0)
