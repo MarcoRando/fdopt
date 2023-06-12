@@ -13,16 +13,20 @@ from fdopt.direction_generators import CoordinateDirections, GaussianDirections,
 
 seed = 12131415
 
+dimensions = [2, 4, 5, 7, 8, 9, 10]# 12, 15, 20, 50, 100, 500]#[i for i in range(1, 6)] + [7, 10, 12, 15, 25, 50, 100, 500]
+device = 'cpu'
+
+
 def execute_experiment(d, P_class, gamma_0, f_min = 0.0, reps = 10, T = 1000):
-    target = LeastSquares(m = d, d = d)
-    P = P_class(d = d, l = d, seed=seed)
+    target = LeastSquares(m = d, d = d, device=device)
+    P = P_class(d = d, l = d, seed=seed, device=device)
     x_0 = torch.ones((1, d), dtype=torch.float64, device=device)
     values = []
     traces = []
     for r in range(reps):
         L = target.get_L()
         gamma = ConstantStepsize(gamma_0=gamma_0 * 1/L)
-        h = ConstantStepsize(gamma_0=1e-5)
+        h = Stepsize(gamma_0=1.0, law=lambda t: (1/(t + 1)) ** 2)
         opt = ZD(gamma=gamma, h=h, P=P, g_estimator='forward')
         res = opt.optimize(f = target, x_0 = x_0, T = T, return_trace=True)
         values.append(res['fx'].item() - f_min)
@@ -32,18 +36,18 @@ def execute_experiment(d, P_class, gamma_0, f_min = 0.0, reps = 10, T = 1000):
     return values, traces
     
 
-dimensions = [2, 4, 5, 7, 8, 9, 10, 12, 15, 20, 50, 100, 500]#[i for i in range(1, 6)] + [7, 10, 12, 15, 25, 50, 100, 500]
 results = {}
-device = 'cpu'
 
 labels = ["coordinate", "gaussian", "spherical", "qr"]
 directions = [CoordinateDirections, GaussianDirections, SphericalDirections, QRDirections]
 
 for (i, label) in enumerate(labels):
     results[label] = {}
+    print(f"[++] {label}: Executing experiments...")
     for d in dimensions:
-        gammas = [0.99, 1/d, 1/2, 1/2]
-        values, traces = execute_experiment(d, directions[i], gammas[i], f_min = 0.0, reps=10, T = 100)
+        print(f"\t[--] {label}: d = {d} completed!")
+        gammas = [0.5, 0.5 * 1/d, 0.5, 0.5]
+        values, traces = execute_experiment(d, directions[i], gammas[i], f_min = 0.0, reps=5, T = 1000)
         mu_fstar, std_fstar = values.mean(), values.std()
         mu_trace, std_trace = traces.mean(axis=0), traces.std(axis=0)
 #        print(mu_trace.shape)
@@ -54,5 +58,4 @@ figsize = (10, 7)
 for d in dimensions:
     mean_vals = np.asarray([results[label][d][2] for label in labels]).reshape(len(labels), -1)
     std_vals =  np.asarray([results[label][d][3] for label in labels]).reshape(len(labels), -1)
-    print(mean_vals.shape, std_vals.shape)
     plot_comparison(f"Function values d = {d}", mean_vals, std_vals, "$k$", "$f(x_k) - f(x^*)$", labels, f"comparison_d_{d}", figsize=figsize, plot_legend = False, yscale="log")
