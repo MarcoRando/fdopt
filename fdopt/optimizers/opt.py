@@ -1,4 +1,4 @@
-import numpy as np
+import torch
 
 from typing import Callable, Dict, Tuple, Any
 from fdopt.direction_generators import DirectionGenerator
@@ -26,11 +26,11 @@ class Optimizer:
     def l(self) -> int:
         return self.P.l
     
-    def _build_result(self, x, fx, trace = None):
+    def _build_result(self, x : torch.Tensor, fx : float, trace = None):
         result = {'x' : x, 'fx' : fx}
         if trace is not None:
             result['trace'] = trace
         return result
     
-    def optimize(self, f : Callable, x_0 : np.ndarray, T : int = 100) -> Dict[str, Any]:
+    def optimize(self, f : Callable, x_0 : torch.Tensor, T : int = 100) -> Dict[str, Any]:
         raise NotImplementedError("This method is implemented in subclasses!")
