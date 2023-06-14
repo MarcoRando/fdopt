@@ -8,7 +8,7 @@ from utils import plot_comparison
 from synthetic import LeastSquares
 
 from fdopt import ZD
-from fdopt.stepsize import ConstantStepsize, Stepsize
+from fdopt.stepsize import ConstantStepsize, Stepsize, PolyakStepsize
 from fdopt.direction_generators import CoordinateDirections, GaussianDirections, SphericalDirections, RademacherDirections, QRDirections
 
 seed = 12131415

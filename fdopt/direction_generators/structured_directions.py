@@ -1,5 +1,4 @@
-import numpy as np
-#import torch
+import torch
 from fdopt.direction_generators.generator import DirectionGenerator
 
 class CoordinateDirections(DirectionGenerator):
@@ -7,13 +6,13 @@ class CoordinateDirections(DirectionGenerator):
     def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
 
-    def __call__(self) -> np.ndarray:
-        I = np.zeros((self.l, self.d), dtype=self.dtype)
-        inds = self.rnd_state.choice(self.d, self.l, replace=False) 
+    def __call__(self) -> torch.Tensor:
+        I = torch.zeros((self.l, self.d), dtype=self.dtype, device=self.device)
+        inds = torch.randperm(self.d, device=self.device, generator=self.generator)[:self.l]
         I[range(self.l), inds] = 1.0
         return I
 
 class QRDirections(DirectionGenerator):
-    def __call__(self) -> np.ndarray:
-        P = self.rnd_state.randn(self.d, self.l)
-        return np.linalg.qr(P)[0].T
+    def __call__(self) -> torch.Tensor:
+        P = torch.randn(self.d, self.l, dtype=self.dtype, device=self.device, generator=self.generator)
+        return torch.linalg.qr(P)[0].T

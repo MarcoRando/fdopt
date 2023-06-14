@@ -4,57 +4,38 @@ import numpy as np
 from fdopt.optimizers.opt import Optimizer
 from typing import Callable, Dict, Iterable
 from fdopt.stepsize.standard_stepsizes import Stepsize
-
-from concurrent.futures import ProcessPoolExecutor as PPE, ThreadPoolExecutor as TPE
+from fdopt.grad_estimators.grad_estimators import GradEstimator
 
 
 class ZD(Optimizer):
 
-    def __init__(self, gamma : Stepsize, h: Stepsize, g_estimator : str = 'forward', **kwargs) -> None:
-        assert g_estimator in ['forward', 'single', 'central']
-        super().__init__(**kwargs)
-        self._approx_grad = getattr(self, '_compute_{}_fd'.format(g_estimator))
+    def __init__(self, g : GradEstimator, gamma : Stepsize, h: Stepsize) -> None:
+        self.g = g
         self.gamma = gamma
         self.h = h
 
-    def _compute_forward_fd(self, f : Callable, x : np.ndarray, h : float, P : np.ndarray, values : Iterable, executor: PPE | TPE | None = None):
-        g = np.zeros(self.d, dtype=self.P.dtype)
-        fx = f(x) if executor is None else executor.submit(f, x).result()
-        for i, f_next in enumerate(values):
-            g +=  (f_next - fx) * P[i] 
-        return (self.d/self.l) * g/h
-
-    def _compute_central_fd(self, f : Callable, x : np.ndarray, h : float, P : np.ndarray, values : Iterable, executor: PPE | TPE | None = None):
-        g = np.zeros(self.d, dtype=self.P.dtype)
-        near_points = [x - h * P[i] for i in range(self.l)]
-        left_values = map(f, near_points) if executor is None else executor.map(f, near_points)
-        for i, (f_plus, f_minus) in enumerate(zip(values, left_values)):
-            g +=  (f_plus - f_minus) * P[i] 
-        return (self.d/self.l) * (g/(2*h))
-  
-    def _compute_single_fd(self, f : Callable, x : np.ndarray, h : float, P : np.ndarray, values : Iterable, executor: PPE | TPE | None = None):
-        g = np.zeros(self.d, dtype=self.P.dtype)
-        for i, f_next in enumerate(values):
-            g +=  (f_next * P[i]) 
-        return (self.d/self.l) * g / h 
-        
+    @property
+    def f(self):
+        return self.g.f        
     
-    def optimize(self, f: Callable, x_0: np.ndarray, T: int = 100, return_trace : bool = False) -> Dict:
-        x = x_0.copy()
-        trace = [(x, f(x))] if return_trace else None
+    def optimize(self, x_0: torch.Tensor, T: int = 100, return_trace : bool = False) -> Dict:
+        x_k = x_0.clone()
+        f_k = self.f(x_k)
+        trace = [(x_k, f_k)] if return_trace else None
 
-        executor = self.executor_cls(max_workers = self.num_workers) if self.executor_cls is not None else None
         for k in range(T):
-            h = self.h(k)
-            P = self.P()
-            near_points = [x + h * P[i] for i in range(self.l)]
-            values = map(f, near_points) if executor is None else executor.map(f, near_points)
-            g = self._approx_grad(f, x, h, P, values=values)
-            gamma = self.gamma(k)
-            x = x - gamma * g
+            h_k = self.h(k)
+            g_k = self.g(x = x_k, fx=f_k, h=h_k)
+            gamma_k = self.gamma(k=k, fx=f_k, gk=g_k)
+            x_k = x_k - gamma_k * g_k
+            f_k = self.f(x_k)
             if return_trace:
-                trace.append((x, f(x))) 
-        if executor is not None:
-            executor.shutdown()
-        return self._build_result(x, f(x), trace=trace)
+                trace.append((x_k, f_k)) 
+            self.g.update(x_k, g_k)
+            self.gamma.update(x_k, f_k)
+        
+        return self._build_result(x_k, f_k, trace=trace)
             
+    def reset(self):
+        self.g.reset()
+        self.gamma.reset()

@@ -1,5 +1,5 @@
-import numpy as np
-from typing import Callable
+import torch
+from typing import Callable, Union
 
     
 class Stepsize:
@@ -8,8 +8,11 @@ class Stepsize:
         self.gamma_0 = gamma_0
         self.law = law
         
-    def __call__(self, k : int, fx : float = None, gk : np.ndarray = None ) -> float:
+    def __call__(self, k : int, fx : Union[torch.Tensor, float] = None, gk : torch.Tensor = None ) -> float:
         return self.gamma_0 * self.law(k)
+    
+    def update(self, x : torch.Tensor, fx : Union[torch.Tensor, float]) -> None:
+        pass
 
 
 class ConstantStepsize(Stepsize):
@@ -17,7 +20,7 @@ class ConstantStepsize(Stepsize):
     def __init__(self, gamma_0 : float) -> None:
         super().__init__(gamma_0 = gamma_0, law=None)
         
-    def __call__(self, k : int, fx : float = None, gk : np.ndarray = None ) -> float:
+    def __call__(self, k : int, fx : Union[torch.Tensor, float] = None, gk : torch.Tensor = None ) -> float:
         return self.gamma_0
 
 class PolyakStepsize(Stepsize):
@@ -30,16 +33,18 @@ class PolyakStepsize(Stepsize):
         self.eps = eps
         self.__call__ = self._full_polyak if eps is None else self._app_polyak
 
-    def _full_polyak(self, k : int, fx : float = None, gk : np.ndarray = None ) -> float:
-        return self.gamma_0 * ((fx - self.f_min)/np.square(np.linalg.norm(gk)))
+    def _full_polyak(self, k : int, fx : Union[torch.Tensor, float] = None, gk : torch.Tensor = None ) -> float:
+        sq_norm = gk.norm().square()
+        return self.gamma_0 * ((fx - self.f_min)/sq_norm)
 
         
-    def _app_polyak(self, k : int, fx : float = None, gk : np.ndarray = None ) -> float:
+    def _app_polyak(self, k : int, fx : Union[torch.Tensor, float] = None, gk : torch.Tensor = None ) -> float:
         eps_k = self.eps(k)
+        sq_norm = gk.norm().square()
         if self.f_min is None or self.f_min > fx:
             self.f_min = fx
 
-        return self.gamma_0 * ((fx - self.f_min + eps_k) / np.square(np.linalg.norm(gk)))
+        return self.gamma_0 * ((fx - self.f_min + eps_k) / sq_norm)
         
         
         

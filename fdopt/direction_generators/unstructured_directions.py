@@ -1,17 +1,22 @@
-import numpy as np
+import torch
 
 from fdopt.direction_generators.generator import DirectionGenerator
 
 class GaussianDirections(DirectionGenerator):
 
-    def __call__(self) -> np.ndarray:
-        return self.rnd_state.randn(self.l, self.d)
+    def __call__(self) -> torch.Tensor:
+        return torch.randn(self.l, self.d, generator=self.generator, device=self.device, dtype=self.dtype)
 
 class SphericalDirections(GaussianDirections):
-    def __call__(self) -> np.ndarray:
-        P = super().__call__().T
-        return (P/np.linalg.norm(P, axis=0, ord=2)).T
+    def __call__(self) -> torch.Tensor:
+        P = torch.randn(self.d, self.l, generator=self.generator, device=self.device, dtype=self.dtype)
+        P.div_(torch.linalg.norm(P, dim=0, ord=2))
+        return P.T
 
 class RademacherDirections(DirectionGenerator):
-    def __call__(self) -> np.ndarray:
-        return self.rnd_state.choice([-1, 1], size=(self.l, self.d))
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.prob_vec = torch.Tensor([1.0, 1.0], device=self.device)
+
+    def __call__(self) -> torch.Tensor:
+        return (2 * torch.multinomial(self.prob_vec, self.d * self.l, replacement=True, generator=self.generator) - 1).reshape(self.l, self.d)
