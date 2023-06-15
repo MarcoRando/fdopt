@@ -81,7 +81,7 @@ dtype = torch.float64
 
 L = 20
 mu = 1
-dimensions = [i for i in range(2, 11)] + [15, 17, 20, 25, 30, 40, 50, 100, 1000]
+dimensions = [i for i in range(2, 11)] + [15, 17, 20, 25, 30, 40, 50, 100, 200, 500, 1000]
 reps = 200
 h = 1e-10
 with open(f"{out_path}/exp_info.log", 'w') as f:
