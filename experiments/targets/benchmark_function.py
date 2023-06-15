@@ -7,6 +7,7 @@ class BenchmarkFunction:
     def __init__(self, name : str, d : int, x_star : torch.Tensor | None = None, fx_star : float | None = None, sigma : float = 0.0, seed : int = 121212, device : str = 'cpu' , dtype : torch.dtype = torch.float64) -> None:
         assert x_star is None or x_star.shape[1] == d
         self.name = name
+        self.x_star = x_star
         self.fx_star = fx_star
         self.d = d
         self.sigma = sigma
