@@ -16,7 +16,7 @@ class SphericalDirections(GaussianDirections):
 class RademacherDirections(DirectionGenerator):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.prob_vec = torch.Tensor([1.0, 1.0], device=self.device)
+        self.prob_vec = torch.tensor([1.0, 1.0], device=self.device)
 
     def __call__(self) -> torch.Tensor:
-        return (2 * torch.multinomial(self.prob_vec, self.d * self.l, replacement=True, generator=self.generator) - 1).reshape(self.l, self.d)
+        return (2 * torch.multinomial(self.prob_vec, self.d * self.l, replacement=True, generator=self.generator) - 1).reshape(self.l, self.d).to(dtype=self.dtype)
