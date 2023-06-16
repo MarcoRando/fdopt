@@ -3,7 +3,7 @@ import sys
 import os
 import numpy as np
 from fdopt import ZD
-from fdopt.grad_estimators import SinglePointEstimator, ForwardFD, CentralFD, LinInterpolation, CentralLinInterpolation
+from fdopt.grad_estimators import GenGradApprox, GenStructGradApprox, SinglePointEstimator, ForwardFD, CentralFD, LinInterpolation, CentralLinInterpolation
 from fdopt.direction_generators import GaussianDirections, SphericalDirections, CoordinateDirections, QRDirections
 
 from fdopt.stepsize import ConstantStepsize
@@ -19,31 +19,50 @@ dtype = torch.float64
 
 def get_methods():
     directions = [GaussianDirections, SphericalDirections, CoordinateDirections, QRDirections]
-    estimators = [ForwardFD, CentralFD, LinInterpolation, CentralLinInterpolation] 
+    estimators = [ForwardFD, CentralFD, LinInterpolation, CentralLinInterpolation, GenGradApprox] 
     method_labels = {
         'FFD' : ForwardFD, 
         'CFD' : CentralFD, 
         'SPE' : SinglePointEstimator,
         'LI' : LinInterpolation, 
-        'CLI' : CentralLinInterpolation}
-    direction_labels = {'G' : GaussianDirections, 
-                        'SP' : SphericalDirections, 
-                        'CO' : CoordinateDirections, 
-                        'QR' : QRDirections}
+        'CLI' : CentralLinInterpolation,
+        'GGA' : GenGradApprox
+    }
+    direction_labels = {
+        'G' : GaussianDirections, 
+        'SP' : SphericalDirections, 
+        'CO' : CoordinateDirections, 
+        'QR' : QRDirections}
     methods = {}
     for (k_m, v_m) in method_labels.items():
         for (k_d, v_d) in direction_labels.items():
             methods[f"{k_m}_{k_d}"] = (v_m, v_d)
     return methods
 
+def get_gsga_methods(methods):
+    
+    direction_labels = {
+        'CO' : CoordinateDirections, 
+        'QR' : QRDirections}
+    dct_mode = [True, False]
+    id_permutation = [True, False]
+    for (k_d, dirs) in direction_labels.items():
+        for dct in dct_mode:
+            for id_perm in id_permutation:
+                methods[f"GSGA_{k_d}_{dct}_{id_perm}"] = (dirs, dct, id_perm)
+    return methods
 
+
+def get_gsga_g(target, method, d, device='cuda', dtype=torch.float64):
+    (direction, dct, id_perm) = method
+    P = direction(d = d, l = d, device = device, dtype = dtype)
+    return GenStructGradApprox(dct_mode = dct, id_permutation = id_perm, E_device=device, d = d,  l =d,  f = target, P = P, normalize=True)
+    
 
 def get_g(target, method, d, device='cuda', dtype=torch.float64):
     (approximation, direction) = method
     P = direction(d = d, l = d, device = device, dtype = dtype)
-    return approximation(target, P = P, normalize=True)
-    
-
+    return approximation(d, d, target, P = P, normalize=True)
 
 def compute_grad_accuracy(targets, methods, h = 1e-10, reps = 10):
     # targets = [(target1, [x1]), (target2, [x1, x2, x3]), ...]
@@ -57,12 +76,13 @@ def compute_grad_accuracy(targets, methods, h = 1e-10, reps = 10):
             for (k_met, method) in methods.items():
                 print(f"\t[{repr(target)}] testing {k_met} at {repr(x.reshape(-1).tolist())}...")
                 results[repr(target)][repr(x.reshape(-1).tolist())][k_met] = {}
-                g = get_g(target, method, d, device = device, dtype = dtype)
+                g = get_g(target, method, d, device = device, dtype = dtype) if 'GSGA' not in k_met else get_gsga_g(target, method, d, device = device, dtype = dtype)
                 errs = []
                 for _ in range(reps):
                     errs.append(compute_relative_error(grad(x), g(x, target(x), h)))                    
                 results[repr(target)][repr(x.reshape(-1).tolist())][k_met] = (np.mean(errs), np.std(errs))
     return results
+    
             
 def store_result(results):
     for (target_name, input_points) in results.items():
@@ -81,7 +101,7 @@ dtype = torch.float64
 
 L = 20
 mu = 1
-dimensions = [i for i in range(2, 11)] + [15, 17, 20, 25, 30, 40, 50, 100, 200, 500, 1000]
+dimensions = [i for i in range(2, 11)] #+ [15, 17, 20, 25, 30, 40, 50, 100, 200, 500, 1000]
 reps = 200
 h = 1e-10
 with open(f"{out_path}/exp_info.log", 'w') as f:
@@ -103,6 +123,7 @@ for d in dimensions:
     x5 = torch.full((1, d), 12.0, device=device, dtype=dtype)
 
     methods = get_methods()
+    methods = get_gsga_methods(methods)
     targets = [(target, [x1, x2, x3, x4, x5])]
 
     results = compute_grad_accuracy(targets, methods, h = h, reps=reps)

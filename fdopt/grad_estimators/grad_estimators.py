@@ -1,24 +1,22 @@
 import torch
 
-from typing import Union, Callable
+from torch_dct import dct
+
+from typing import Union, Callable, Dict
 
 from fdopt.direction_generators.generator import DirectionGenerator
+from fdopt.direction_generators.structured_directions import CoordinateDirections
 
 class GradEstimator:
     
-    def __init__(self, f : Callable[[torch.Tensor], Union[torch.Tensor, float]], P : DirectionGenerator, normalize : bool = True):
+    def __init__(self, d : int, l : int, f : Callable[[torch.Tensor], Union[torch.Tensor, float]], P : DirectionGenerator, normalize : bool = True):
         self.f = f
+        self.d = d
+        self.l = l
         self.P = P
         self.normalize = normalize
         self.nrm_const = (self.d / self.l) if normalize else 1.0
         
-    @property
-    def d(self) -> int:
-        return self.P.d
-    
-    @property
-    def l(self) -> int:
-        return self.P.l
         
     def __call__(self, x : torch.Tensor, fx : Union[torch.Tensor, float], h : float):
         raise NotImplementedError("Function implemented in subclasses")
@@ -50,9 +48,9 @@ class SinglePointEstimator(GradEstimator):
 
         
 class LinInterpolation(GradEstimator):
-    def __init__(self, f : Callable[[torch.Tensor], Union[torch.Tensor, float]], P : DirectionGenerator, normalize : bool = True):
+    def __init__(self, d : int, l : int, f : Callable[[torch.Tensor], Union[torch.Tensor, float]], P : DirectionGenerator, normalize : bool = True):
         assert P.d == P.l, "Number of directions must be equal to the number of dimensions!"
-        super().__init__(f, P, normalize)
+        super().__init__(d, l, f, P, normalize)
         
     def __call__(self, x : torch.Tensor, fx : Union[torch.Tensor, float], h : float):
         P = self.P()
@@ -68,3 +66,43 @@ class CentralLinInterpolation(LinInterpolation):
         g_plus  = torch.linalg.solve(h * P, f_plus) 
         g_minus = torch.linalg.solve(h * P, f_minus)
         return (g_plus - g_minus)/2
+
+
+class GenGradApprox(GradEstimator):
+        
+                    
+    def __call__(self, x : torch.Tensor, fx : Union[torch.Tensor, float], h : float):
+        P = self.P()        
+        alpha = (self.f(x.add(P, alpha=h)) - fx)/h
+        return torch.linalg.lstsq(P, alpha)[0] #.mm(alpha)
+
+
+
+class GenStructGradApprox(GradEstimator):
+        
+    def __init__(self,  dct_mode : bool = True, E_device : str = 'cpu', id_permutation : bool = False, **kwargs : Dict):
+        super().__init__(**kwargs)
+        self.dct_mode = dct_mode 
+        self.id_permutation = id_permutation
+        if id_permutation:
+            self.perm_generator = CoordinateDirections(self.d, self.l, dtype=self.P.dtype, device = E_device)
+            self.E = self.perm_generator()
+        else:
+            self.E = torch.eye(self.l, self.d, dtype = self.P.dtype, device = E_device)
+        if dct_mode:
+            self.E = dct(self.E, norm='ortho')
+        self.E = torch.linalg.pinv(self.E)
+
+                    
+    def __call__(self, x : torch.Tensor, fx : Union[torch.Tensor, float], h : float):
+        P = self.P()
+        alpha = (self.f(x.add(P, alpha=h)) - fx)/h
+        return self.E.mm(P).mm(alpha)
+#        return torch.linalg.solve(h * P, f_vec)
+
+    def update(self, x : torch.Tensor, g : torch.Tensor):
+        if self.id_permutation:
+            self.E = self.perm_generator()
+            if self.dct_mode:
+                self.E = dct(self.E, norm='ortho')
+            self.E = torch.linalg.pinv(self.E)
