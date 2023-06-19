@@ -1,4 +1,4 @@
-from fdopt.grad_estimators.grad_estimators import GenGradApprox, GenStructGradApprox, SinglePointEstimator,GradEstimator, ForwardFD, CentralFD, LinInterpolation, CentralLinInterpolation
+from fdopt.grad_estimators.grad_estimators import CentralGenStructGradApprox, CentralGenGradApprox, GenGradApprox, GenStructGradApprox, SinglePointEstimator,GradEstimator, ForwardFD, CentralFD, LinInterpolation, CentralLinInterpolation
 
 
 __all__ = (
@@ -9,5 +9,7 @@ __all__ = (
     'LinInterpolation',
     'CentralLinInterpolation',
     'GenGradApprox',
-    'GenStructGradApprox'
+    'CentralGenGradApprox',
+    'GenStructGradApprox',
+    'CentralGenStructGradApprox'
 )
