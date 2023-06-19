@@ -80,29 +80,24 @@ class GenGradApprox(GradEstimator):
 
 class GenStructGradApprox(GradEstimator):
         
-    def __init__(self,  dct_mode : bool = True, E_device : str = 'cpu', id_permutation : bool = False, **kwargs : Dict):
+    def __init__(self,  **kwargs : Dict):
         super().__init__(**kwargs)
-        self.dct_mode = dct_mode 
-        self.id_permutation = id_permutation
-        if id_permutation:
-            self.perm_generator = CoordinateDirections(self.d, self.l, dtype=self.P.dtype, device = E_device)
-            self.E = self.perm_generator()
-        else:
-            self.E = torch.eye(self.l, self.d, dtype = self.P.dtype, device = E_device)
-        if dct_mode:
-            self.E = dct(self.E, norm='ortho')
-        self.E = torch.linalg.pinv(self.E)
+#        self.dct_mode = dct_mode 
+#        self.id_permutation = id_permutation
+#        if id_permutation:
+#            self.perm_generator = CoordinateDirections(self.d, self.l, dtype=self.P.dtype, device = E_device)
+#            self.E = self.perm_generator()
+#        else:
+#            self.E = torch.eye(self.l, self.d, dtype = self.P.dtype, device = E_device)
+#        if dct_mode:
+        self.E = dct(torch.eye(self.l, self.d, dtype = self.P.dtype, device = self.P.device), norm='ortho')
+        self.E_pinv = torch.linalg.pinv(self.E)
 
                     
     def __call__(self, x : torch.Tensor, fx : Union[torch.Tensor, float], h : float):
-        P = self.P()
-        alpha = (self.f(x.add(P, alpha=h)) - fx)/h
-        return self.E.mm(P).mm(alpha)
-#        return torch.linalg.solve(h * P, f_vec)
-
-    def update(self, x : torch.Tensor, g : torch.Tensor):
-        if self.id_permutation:
-            self.E = self.perm_generator()
-            if self.dct_mode:
-                self.E = dct(self.E, norm='ortho')
-            self.E = torch.linalg.pinv(self.E)
+        G = self.P()
+        V = G @ self.E
+        #.add(V, alpha=h)
+#        print(G)
+        alpha = (self.f(x + h * V) - fx)/h
+        return self.E_pinv @ G.T @ alpha

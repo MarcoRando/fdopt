@@ -44,25 +44,14 @@ def get_gsga_methods(methods):
     direction_labels = {
         'CO' : CoordinateDirections, 
         'QR' : QRDirections}
-    dct_mode = [True, False]
-    id_permutation = [True, False]
     for (k_d, dirs) in direction_labels.items():
-        for dct in dct_mode:
-            for id_perm in id_permutation:
-                methods[f"GSGA_{k_d}_{dct}_{id_perm}"] = (dirs, dct, id_perm)
+        methods[f"GSGA_{k_d}"] = (GenStructGradApprox, dirs)
     return methods
-
-
-def get_gsga_g(target, method, d, device='cuda', dtype=torch.float64):
-    (direction, dct, id_perm) = method
-    P = direction(d = d, l = d, device = device, dtype = dtype)
-    return GenStructGradApprox(dct_mode = dct, id_permutation = id_perm, E_device=device, d = d,  l =d,  f = target, P = P, normalize=True)
-    
 
 def get_g(target, method, d, device='cuda', dtype=torch.float64):
     (approximation, direction) = method
     P = direction(d = d, l = d, device = device, dtype = dtype)
-    return approximation(d, d, target, P = P, normalize=True)
+    return approximation(d = d, l = d, f = target, P = P, normalize=True)
 
 def compute_grad_accuracy(targets, methods, h = 1e-10, reps = 10):
     # targets = [(target1, [x1]), (target2, [x1, x2, x3]), ...]
@@ -76,7 +65,7 @@ def compute_grad_accuracy(targets, methods, h = 1e-10, reps = 10):
             for (k_met, method) in methods.items():
                 print(f"\t[{repr(target)}] testing {k_met} at {repr(x.reshape(-1).tolist())}...")
                 results[repr(target)][repr(x.reshape(-1).tolist())][k_met] = {}
-                g = get_g(target, method, d, device = device, dtype = dtype) if 'GSGA' not in k_met else get_gsga_g(target, method, d, device = device, dtype = dtype)
+                g = get_g(target, method, d, device = device, dtype = dtype) #if 'GSGA' not in k_met else get_gsga_g(target, method, d, device = device, dtype = dtype)
                 errs = []
                 for _ in range(reps):
                     errs.append(compute_relative_error(grad(x), g(x, target(x), h)))                    
@@ -96,12 +85,12 @@ def store_result(results):
 
 out_path = "../results/grad_accuracy/changing_d/"
 os.makedirs(out_path, exist_ok=True)            
-device = 'cuda'
+device = 'cpu'
 dtype = torch.float64
 
 L = 20
 mu = 1
-dimensions = [i for i in range(2, 11)] + [15, 17, 20, 25, 30, 40, 50, 100, 200, 500]
+dimensions = [i for i in range(2, 11)] #+ [15, 17, 20, 25, 30, 40, 50, 100, 200, 500]
 reps = 200
 h = 1e-10
 with open(f"{out_path}/exp_info.log", 'w') as f:
