@@ -41,6 +41,7 @@ for d in dimensions:
 
     methods = get_methods(add_li=True)
     methods = get_gsga_methods(methods)
+#    print(list(methods.keys()))
     objs = [(t1, [x1, x2, x3])]
 
     results = compute_grad_accuracy(objs, methods,  d= d, l = d, h = h, reps=reps, device=device, dtype=dtype)
