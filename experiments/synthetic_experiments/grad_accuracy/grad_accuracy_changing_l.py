@@ -14,7 +14,7 @@ from synthetic import LeastSquares,SphereFunction
 device = 'cpu'
 dtype = torch.float64
 
-
+gen = torch.Generator(device=device)
 out_path = "../results/grad_accuracy/changing_l/"
 os.makedirs(out_path, exist_ok=True)            
 
@@ -38,14 +38,14 @@ t1 = SphereFunction(d = d, device=device, dtype=dtype) #LeastSquares(m = d, d=d,
 x1 = torch.ones((1, d), device=device, dtype=dtype)
 x2 = torch.tensor([i for i in range(d)], dtype=dtype, device=device).reshape(1, d) + 1e-10
 x3 = torch.tensor([i**2 + d for i in range(d)], device=device, dtype=dtype).reshape(1, d)
-
-
+num_points = 7
+xs = [x1, x2, x3] + [torch.rand(1, d, dtype=dtype, device=device, generator=gen) * 10 - 5 for _ in range(num_points)]
 for l in dimensions:
     print(f"[++] Executing experiment with d = {d} l = {l}")
 
     methods = get_methods()
     methods = get_gsga_methods(methods)
-    objs = [(t1, [x1, x2, x3])]
+    objs = [(t1, xs)]
 
     results = compute_grad_accuracy(objs, methods,  d= d, l = l, h = h, reps=reps, device=device, dtype=dtype)
 

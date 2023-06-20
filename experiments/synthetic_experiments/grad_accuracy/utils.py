@@ -1,4 +1,5 @@
 import torch
+import time
 import numpy as np
 
 from fdopt.grad_estimators import CentralGenStructGradApprox, CentralGenGradApprox, GenGradApprox, GenStructGradApprox, SinglePointEstimator, ForwardFD, CentralFD, LinInterpolation, CentralLinInterpolation
@@ -61,28 +62,36 @@ def compute_grad_accuracy(targets, methods, d, l, h = 1e-10, reps = 10, device =
         grad = target.grad
         results[repr(target)] = {}
         for (i, x) in enumerate(xs):
-            results[repr(target)][repr(x.reshape(-1).tolist())] = {}
+            results[repr(target)][repr(x.reshape(-1).tolist()) + f"_{i}"] = {}
             for (k_met, method) in methods.items():
                 print(f"\t[{repr(target)}_{l}] testing {k_met} at x_{i}...")
-                results[repr(target)][repr(x.reshape(-1).tolist())][k_met] = {}
+                results[repr(target)][repr(x.reshape(-1).tolist()) + f"_{i}"][k_met] = {}
                 if 'GSGA' not in k_met:
                     g = get_g(target, method, d, l, device = device, dtype = dtype, gsga=False) #if 'GSGA' not in k_met else get_gsga_g(target, method, d, device = device, dtype = dtype)
                 else:
                     g = get_g(target, method, d, l, device = device, dtype = dtype, gsga=True)                    
                 errs = []
+                tm = []
                 fx = target(x)
+                gx = grad(x)
                 for _ in range(reps):
-                    errs.append(compute_relative_error(grad(x), g(x, fx, h)))                    
-                results[repr(target)][repr(x.reshape(-1).tolist())][k_met] = (np.mean(errs), np.std(errs))
+                    g_time = time.time()
+                    g_app = g(x, fx, h)
+                    g_time = time.time() - g_time
+                    err = compute_relative_error(gx, g_app)
+                    errs.append(err)             
+                    tm.append(g_time)       
+                results[repr(target)][repr(x.reshape(-1).tolist()) + f"_{i}"][k_met] = (np.mean(errs), np.std(errs), np.mean(tm), np.std(tm))
     return results
     
             
-def store_result(results, l, out_path):
+def store_result(results, l, out_path, s = None):
     for (target_name, input_points) in results.items():
-        with open("{}/{}_{}.log".format(out_path, target_name, l), 'w') as f:
+        out = "{}/{}_{}.log".format(out_path, target_name, l) if s is None else "{}/{}_{}_{}.log".format(out_path, target_name, l, s)
+        with open(out, 'w') as f:
             for (k_x, methods) in input_points.items():
                 f.write("[++] x = {}\n".format(k_x))
                 for (met_name, err) in methods.items():
-                    mu, std = err
-                    f.write("\t{},{},{}\n".format(met_name, mu, std)) 
+                    mu_err, std_err, mu_tm, std_tm = err
+                    f.write("\t{},{},{},{},{}\n".format(met_name, mu_err, std_err, mu_tm, std_tm)) 
 

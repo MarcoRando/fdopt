@@ -18,6 +18,24 @@ class SphereFunction(BenchmarkFunction):
     def __call__(self, x: torch.Tensor) -> float:
         return self.add_noise(0.5 * x.square().sum(dim = 1, keepdim=True))
     
+class SparseSphere(BenchmarkFunction):
+    def __init__(self, d : int, s : int, sigma: float = 0, seed: int = 121212, device: str = 'cpu', dtype: torch.dtype = torch.float64) -> None:
+        assert s < d, "sparsity must be smaller that d"
+        x_star = torch.zeros((1, d), dtype=dtype, device=device)
+        super().__init__("SparseSphere", d = d, x_star = x_star, fx_star= 0.0, sigma = sigma, seed = seed, device = device, dtype = dtype)
+        self.used_inds = torch.multinomial(torch.ones(d), replacement=False, num_samples=d - s)
+
+    def grad(self, x):
+        g_x = x.clone()
+        for i in range(self.d):
+            if i not in self.used_inds:
+                g_x[:, i] = 0.0
+        return g_x
+
+    def __call__(self, x: torch.Tensor) -> float:
+        return self.add_noise(0.5 * x[:, self.used_inds].square().sum(dim = 1, keepdim=True))
+    
+    
 class LeastSquares(BenchmarkFunction):
     def __init__(self, m :int,  d : int, sigma: float = 0, seed: int = 121212, device: str = 'cpu', dtype: torch.dtype = torch.float64, x_star : torch.Tensor | None = None, L : float = None, mu : float=None) -> None:
         x_star = torch.tensor([[i for i in range(d)]], dtype = dtype, device=device).reshape(1, d) if x_star is None else x_star 
