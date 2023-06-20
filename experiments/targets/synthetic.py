@@ -56,9 +56,11 @@ class LeastSquares(BenchmarkFunction):
         return torch.linalg.eigvalsh(self.A.T @ self.A)[-1]
 
     def grad(self, x : torch.Tensor) -> torch.Tensor:
-        return  self.A @ ((self.A @ x.T) - self.y)
+        return  self.A @ ((self.A.mv(x.reshape(self.d))).reshape(-1, 1) - self.y)
 
     def __call__(self, x: torch.Tensor) -> float:
-        fx = 0.5 * (torch.linalg.norm((self.A @ x.T) - self.y, dim=1, keepdim=True, ord=2).square())
-        return self.add_noise(fx)
+        fx = torch.zeros(x.shape[0], dtype=self.dtype, device=self.device)
+        for i in range(x.shape[0]):
+            fx[i] = self.add_noise(0.5 * (torch.linalg.norm((self.A.mv(x[i])).reshape(-1, 1) - self.y, keepdim=True, ord=2).square()))
+        return fx
     

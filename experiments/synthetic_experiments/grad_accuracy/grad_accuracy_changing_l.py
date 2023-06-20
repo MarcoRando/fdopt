@@ -15,6 +15,8 @@ device = 'cpu'
 dtype = torch.float64
 
 gen = torch.Generator(device=device)
+gen.manual_seed(121212)
+
 out_path = "../results/grad_accuracy/changing_l/"
 os.makedirs(out_path, exist_ok=True)            
 

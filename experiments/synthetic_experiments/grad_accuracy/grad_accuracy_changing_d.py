@@ -21,6 +21,8 @@ mu = 5
 dimensions = [1, 2, 3, 5, 6, 7, 10, 20, 50, 100]#, 2, 3, 4, 5]#, 10, 20, 50, 100, 250, 450, 500]#, 10, 15, 20, 25, 30, 40, 50]#[i for i in range(2, 11)] #+ [15, 17, 20, 25, 30, 40, 50, 100, 200, 500]
 reps = 200
 gen = torch.Generator(device=device)
+gen.manual_seed(121212)
+
 h = 1e-10
 with open(f"{out_path}/exp_info.log", 'w') as f:
     f.write(f"[--] L = {L}\n")
@@ -33,7 +35,8 @@ with open(f"{out_path}/exp_info.log", 'w') as f:
     
 num_points = 7
 for d in dimensions:
-    t1 = SphereFunction(d = d, device=device, dtype=dtype) #LeastSquares(m = d, d=d, device=device, dtype=dtype, L = L, mu =mu)
+#    t1 = SphereFunction(d = d, device=device, dtype=dtype) #LeastSquares(m = d, d=d, device=device, dtype=dtype, L = L, mu =mu)
+    t2 = LeastSquares(m = d, d= d, L = L, mu = mu, device=device, dtype = dtype)
     x1 = torch.ones((1, d), device=device, dtype=dtype)
     x2 = torch.tensor([i for i in range(d)], dtype=dtype, device=device).reshape(1, d) + 1e-10
     x3 = torch.tensor([i**2 + d for i in range(d)], device=device, dtype=dtype).reshape(1, d)
@@ -43,7 +46,7 @@ for d in dimensions:
     methods = get_methods(add_li=True)
     methods = get_gsga_methods(methods)
 #    print(list(methods.keys()))
-    objs = [(t1, xs)]
+    objs = [(t2, xs)]
 
     results = compute_grad_accuracy(objs, methods,  d= d, l = d, h = h, reps=reps, device=device, dtype=dtype)
 
