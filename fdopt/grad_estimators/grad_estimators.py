@@ -134,6 +134,6 @@ class CentralGenStructGradApprox(GenStructGradApprox):
         G = self.P()
         V = G @ self.E
         alpha = (self.f(x + h * V) - self.f(x - h * V))/(2 * h)
-        return self.E_pinv @ G.T @ alpha
+        return (self.E_pinv @ G.T @ alpha).T
     def __str__(self):
         return f"CGSGA"
