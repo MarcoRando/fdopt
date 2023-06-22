@@ -33,6 +33,10 @@ class ForwardFD(GradEstimator):
     def __call__(self, x : torch.Tensor, fx : Union[torch.Tensor, float], h : float):
         P = self.P()
         return (self.f(x.add(P, alpha=h)) - fx).mul(P).div(h).sum(dim=0, keepdims=True).mul_(self.nrm_const)
+
+    def __str__(self):
+        return f"FFD"
+
         
 
 class CentralFD(GradEstimator):
@@ -41,10 +45,16 @@ class CentralFD(GradEstimator):
         P = self.P()
         return (self.f(x.add(P, alpha=h)) - self.f(x.add(P, alpha=-h))).mul(P).div(2 * h).sum(dim=0, keepdims=True).mul_(self.nrm_const)
         
+    def __str__(self):
+        return f"CFD"
+
+        
 class SinglePointEstimator(GradEstimator):
     def __call__(self, x : torch.Tensor, fx : Union[torch.Tensor, float], h : float):
         P = self.P()
         return self.f(x.add(P, alpha=h)).mul(P).div(h).sum(dim=0, keepdims=True).mul_(self.nrm_const)
+    def __str__(self):
+        return f"SPE"
 
         
 class LinInterpolation(GradEstimator):
@@ -57,6 +67,10 @@ class LinInterpolation(GradEstimator):
         f_vec =(self.f(x.add(P, alpha=h)) - fx).reshape(-1)
         return torch.linalg.solve(h * P, f_vec)
     
+    def __str__(self):
+        return f"LI"
+
+    
 class CentralLinInterpolation(LinInterpolation):
         
     def __call__(self, x : torch.Tensor, fx : Union[torch.Tensor, float], h : float):
@@ -66,6 +80,8 @@ class CentralLinInterpolation(LinInterpolation):
         g_plus  = torch.linalg.solve(h * P, f_plus) 
         g_minus = torch.linalg.solve(h * P, f_minus)
         return (g_plus - g_minus)/2
+    def __str__(self):
+        return f"CLI"
 
 
 class GenGradApprox(GradEstimator):
@@ -75,6 +91,8 @@ class GenGradApprox(GradEstimator):
         P = self.P()        
         alpha = (self.f(x.add(P, alpha=h)) - fx)/h
         return torch.linalg.lstsq(P, alpha)[0]
+    def __str__(self):
+        return f"GGA"
 
 class CentralGenGradApprox(GradEstimator):
         
@@ -83,6 +101,8 @@ class CentralGenGradApprox(GradEstimator):
         P = self.P()        
         alpha = (self.f(x.add(P, alpha=h)) - self.f(x.add(P, alpha=-h)))/(2 * h)
         return torch.linalg.lstsq(P, alpha)[0] 
+    def __str__(self):
+        return f"CGGA"
 
 
 class GenStructGradApprox(GradEstimator):
@@ -98,6 +118,9 @@ class GenStructGradApprox(GradEstimator):
         V = G @ self.E
         alpha = (self.f(x + h * V) - fx)/h
         return self.E_pinv @ G.T @ alpha
+    
+    def __str__(self):
+        return f"GSGA"
 
 
 class CentralGenStructGradApprox(GenStructGradApprox):
@@ -108,3 +131,5 @@ class CentralGenStructGradApprox(GenStructGradApprox):
         V = G @ self.E
         alpha = (self.f(x + h * V) - self.f(x - h * V))/(2 * h)
         return self.E_pinv @ G.T @ alpha
+    def __str__(self):
+        return f"CGSGA"

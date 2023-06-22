@@ -3,6 +3,7 @@
 *.out
 ZO-BCD/
 ZORO/
+*/cutest/*
 
 # Images and logs
 *.png

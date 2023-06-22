@@ -11,8 +11,14 @@ class CoordinateDirections(DirectionGenerator):
         inds = torch.randperm(self.d, device=self.device, generator=self.generator)[:self.l]
         I[range(self.l), inds] = 1.0
         return I
+    
+    def __str__(self):
+        return f"COO_{self.d}_{self.l}"
 
 class QRDirections(DirectionGenerator):
     def __call__(self) -> torch.Tensor:
         P = torch.randn(self.d, self.l, dtype=self.dtype, device=self.device, generator=self.generator)
         return torch.linalg.qr(P)[0].T
+
+    def __str__(self):
+        return f"QR_{self.d}_{self.l}"
