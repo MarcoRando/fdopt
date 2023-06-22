@@ -117,7 +117,11 @@ class GenStructGradApprox(GradEstimator):
         G = self.P()
         V = G @ self.E
         alpha = (self.f(x + h * V) - fx)/h
-        return self.E_pinv @ G.T @ alpha
+#        print(x.shape, alpha.shape, G.T.shape, self.E_pinv.shape, self.E.shape, V.shape)
+        g = (self.E_pinv @ G.T @ alpha).T
+        return g
+#        print(g.shape)
+#        return self.E_pinv @ G.T @ alpha
     
     def __str__(self):
         return f"GSGA"
