@@ -1,9 +1,8 @@
 import torch
-import numpy as np
 
 from fdopt.optimizers.opt import Optimizer
 from typing import Callable, Dict, Iterable
-from fdopt.stepsize.standard_stepsizes import Stepsize
+from fdopt.stepsize.stepsizes import Stepsize
 from fdopt.grad_estimators.grad_estimators import GradEstimator
 
 
@@ -18,12 +17,13 @@ class ZD(Optimizer):
     def f(self):
         return self.g.f        
     
-    def optimize(self, x_0: torch.Tensor, T: int = 100, return_trace : bool = False) -> Dict:
+    def optimize(self, x_0: torch.Tensor, T: int | None = 100, convergence_criterion : Callable | None = None, return_trace : bool = False) -> Dict:
+        assert T is not None or convergence_criterion is not None, "You have to pass a maximum number of iteration (T) or a convergence criterion!"
         x_k = x_0.clone()
         f_k = self.f(x_k)
         trace = [(x_k, f_k)] if return_trace else None
-
-        for k in range(T):
+        k = 0
+        while (T is None or k < T) and (convergence_criterion is None or convergence_criterion(k, g_k, f_k)): 
             h_k = self.h(k)
             g_k = self.g(x = x_k, fx=f_k, h=h_k)
             gamma_k = self.gamma(k=k, fx=f_k, gk=g_k)
@@ -33,9 +33,10 @@ class ZD(Optimizer):
                 trace.append((x_k, f_k)) 
             self.g.update(x_k, g_k)
             self.gamma.update(x_k, f_k)
-        
-        return self._build_result(x_k, f_k, trace=trace)
+            k += 1
+        return self._build_result(x_k, f_k, k, trace=trace)
             
     def reset(self):
         self.g.reset()
         self.gamma.reset()
+        self.h.reset()

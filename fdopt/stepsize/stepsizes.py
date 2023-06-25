@@ -13,6 +13,9 @@ class Stepsize:
     
     def update(self, x : torch.Tensor, fx : Union[torch.Tensor, float]) -> None:
         pass
+    
+    def reset(self):
+        pass
 
 
 class ConstantStepsize(Stepsize):
