@@ -32,10 +32,12 @@ class ForwardFD(GradEstimator):
         
     def __call__(self, x : torch.Tensor, fx : Union[torch.Tensor, float], h : float):
         P = self.P()
-        return (self.f(x.add(P, alpha=h)) - fx).mul(P).div(h).sum(dim=0, keepdims=True).mul_(self.nrm_const)
+        g= (self.f(x.add(P, alpha=h)) - fx).mul(P).div(h).sum(dim=0, keepdims=True).mul_(self.nrm_const)
+#        print(g)
+        return g
 
     def __str__(self):
-        return f"FFD"
+        return f"FFD_{self.P}"
 
         
 
@@ -46,7 +48,7 @@ class CentralFD(GradEstimator):
         return (self.f(x.add(P, alpha=h)) - self.f(x.add(P, alpha=-h))).mul(P).div(2 * h).sum(dim=0, keepdims=True).mul_(self.nrm_const)
         
     def __str__(self):
-        return f"CFD"
+        return f"CFD_{str(self.P)}"
 
         
 class SinglePointEstimator(GradEstimator):
@@ -54,7 +56,7 @@ class SinglePointEstimator(GradEstimator):
         P = self.P()
         return self.f(x.add(P, alpha=h)).mul(P).div(h).sum(dim=0, keepdims=True).mul_(self.nrm_const)
     def __str__(self):
-        return f"SPE"
+        return f"SPE_{self.P}"
 
         
 class LinInterpolation(GradEstimator):
@@ -68,7 +70,7 @@ class LinInterpolation(GradEstimator):
         return torch.linalg.solve(h * P, f_vec)
     
     def __str__(self):
-        return f"LI"
+        return f"LI_{self.P}"
 
     
 class CentralLinInterpolation(LinInterpolation):
@@ -80,8 +82,9 @@ class CentralLinInterpolation(LinInterpolation):
         g_plus  = torch.linalg.solve(h * P, f_plus) 
         g_minus = torch.linalg.solve(h * P, f_minus)
         return (g_plus - g_minus)/2
+
     def __str__(self):
-        return f"CLI"
+        return f"CLI_{self.P}"
 
 
 class GenGradApprox(GradEstimator):
@@ -90,9 +93,10 @@ class GenGradApprox(GradEstimator):
     def __call__(self, x : torch.Tensor, fx : Union[torch.Tensor, float], h : float):
         P = self.P()        
         alpha = (self.f(x.add(P, alpha=h)) - fx)/h
-        return torch.linalg.lstsq(P, alpha)[0]
+        return torch.linalg.lstsq(P, alpha)[0].reshape(1, -1)
+    
     def __str__(self):
-        return f"GGA"
+        return f"GGA_{self.P}"
 
 class CentralGenGradApprox(GradEstimator):
         
@@ -102,7 +106,7 @@ class CentralGenGradApprox(GradEstimator):
         alpha = (self.f(x.add(P, alpha=h)) - self.f(x.add(P, alpha=-h)))/(2 * h)
         return torch.linalg.lstsq(P, alpha)[0] 
     def __str__(self):
-        return f"CGGA"
+        return f"CGGA_{self.P}"
 
 
 class GenStructGradApprox(GradEstimator):
@@ -116,15 +120,11 @@ class GenStructGradApprox(GradEstimator):
     def __call__(self, x : torch.Tensor, fx : Union[torch.Tensor, float], h : float):
         G = self.P()
         V = G @ self.E
-        alpha = (self.f(x + h * V) - fx)/h
-#        print(x.shape, alpha.shape, G.T.shape, self.E_pinv.shape, self.E.shape, V.shape)
-        g = (self.E_pinv @ G.T @ alpha).T
-        return g
-#        print(g.shape)
-#        return self.E_pinv @ G.T @ alpha
+        alpha = ((self.f(x + h * V) - fx)/h)#.reshape(-1)
+        return (self.E_pinv @ G.T @ alpha).T
     
     def __str__(self):
-        return f"GSGA"
+        return f"GSGA_{self.P}"
 
 
 class CentralGenStructGradApprox(GenStructGradApprox):
@@ -136,4 +136,54 @@ class CentralGenStructGradApprox(GenStructGradApprox):
         alpha = (self.f(x + h * V) - self.f(x - h * V))/(2 * h)
         return (self.E_pinv @ G.T @ alpha).T
     def __str__(self):
-        return f"CGSGA"
+        return f"CGSGA_{self.P}"
+
+
+class EfficientGSGA(GradEstimator):
+    def __init__(self, fixed_matrix_mode : str = 'gaussian', eps : float = 1e-3, in_constant = 7.0, verbose : bool = False, **kwargs : Dict):
+        super().__init__(**kwargs)        
+        self.E = self._generated_fixed_matrix(fixed_matrix_mode)
+        self.EtE = self.E.T.matmul(self.E)
+        self.L = torch.linalg.norm(self.EtE)
+        self.eps = eps
+        self.verbose = verbose
+        self.in_constant = in_constant
+#        self.E_pinv = torch.linalg.pinv(self.E)
+
+    def _generated_fixed_matrix(self, mode):
+        if mode == 'identity':
+            return dct(torch.eye(self.l, self.d, dtype = self.P.dtype, device = self.P.device), norm='ortho')
+        Q = torch.randn((self.d, self.l), generator=self.P.generator, dtype=self.P.dtype)
+        if mode == 'gaussian':
+            return Q.T
+        elif mode == 'spherical':
+            Q /= torch.linalg.norm(Q, ord=2, dim=0)
+            return Q.T
+        elif mode == 'qr':
+            G, _ = torch.linalg.qr(Q)
+            return G.T
+        raise ValueError("Unknown mode!")                    
+    
+    def _grad(self, g, b):
+        return self.EtE.mv(g) - b     
+    
+    def __call__(self, x : torch.Tensor, fx : Union[torch.Tensor, float], h : float):
+        G = self.P()
+        V = G @ self.E
+        alpha = ((self.f(x + h * V) - fx)/h)#.reshape(-1)
+        b = (V.T @ alpha)#.mv(alpha)
+        return torch.linalg.lstsq(self.EtE, b)[0].T
+        
+#        g = torch.ones(self.d, dtype = self.P.dtype, device = self.P.device)
+##        y = g.clone()
+#        grad = self._grad(g, b)
+##        c = 1
+#        while grad.norm() > self.eps:
+##            print(f"[c={c}] |grad|: {torch.linalg.norm(grad)}")
+#            g = g - (1/self.L)*grad   
+#            grad = self._grad(g, b)
+##            c += 1
+#        return g
+    
+    def __str__(self):
+        return f"EGSGA_{self.P}"

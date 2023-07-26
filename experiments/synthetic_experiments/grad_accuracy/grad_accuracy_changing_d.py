@@ -18,7 +18,7 @@ os.makedirs(out_path, exist_ok=True)
 
 L = 20
 mu = 5
-dimensions = [1, 2, 3, 5, 6, 7, 10, 20, 50, 100]#, 2, 3, 4, 5]#, 10, 20, 50, 100, 250, 450, 500]#, 10, 15, 20, 25, 30, 40, 50]#[i for i in range(2, 11)] #+ [15, 17, 20, 25, 30, 40, 50, 100, 200, 500]
+dimensions =  [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 20, 30, 50, 100, 500, 600, 1000]#, 2, 3, 4, 5]#, 10, 20, 50, 100, 250, 450, 500]#, 10, 15, 20, 25, 30, 40, 50]#[i for i in range(2, 11)] #+ [15, 17, 20, 25, 30, 40, 50, 100, 200, 500]
 reps = 200
 gen = torch.Generator(device=device)
 gen.manual_seed(121212)
@@ -33,20 +33,19 @@ with open(f"{out_path}/exp_info.log", 'w') as f:
     f.write(f"[--] reps = {reps}\n")
     f.write(f"[--] h = {h}\n")
     
-num_points = 7
+x_max, x_min = 10.0, 2.0
 for d in dimensions:
-#    t1 = SphereFunction(d = d, device=device, dtype=dtype) #LeastSquares(m = d, d=d, device=device, dtype=dtype, L = L, mu =mu)
-    t2 = LeastSquares(m = d, d= d, L = L, mu = mu, device=device, dtype = dtype)
-    x1 = torch.ones((1, d), device=device, dtype=dtype)
-    x2 = torch.tensor([i for i in range(d)], dtype=dtype, device=device).reshape(1, d) + 1e-10
-    x3 = torch.tensor([i**2 + d for i in range(d)], device=device, dtype=dtype).reshape(1, d)
-    xs = [x1, x2, x3] + [torch.rand(1, d, device=device, dtype=dtype, generator=gen)*10 - 5  for _ in range(num_points)]
+    t1 = SphereFunction(d = d, device=device, dtype=dtype) #LeastSquares(m = d, d=d, device=device, dtype=dtype, L = L, mu =mu)
+#    x = torch.ones((1, d), device=device, dtype=dtype)
+#    x = torch.tensor([i + 1 for i in range(d)], dtype=dtype, device=device).reshape(1, d) + 1e-10
+    x = (x_max - x_min) * torch.rand((1, d), device=device, dtype=dtype, generator=gen) + x_min
+#    x = torch.full((1, d), 12.0, dtype=dtype, device=device)
     print(f"[++] Executing experiment with d = {d} l = {d}")
 
     methods = get_methods(add_li=True)
     methods = get_gsga_methods(methods)
 #    print(list(methods.keys()))
-    objs = [(t2, xs)]
+    objs = [(t1, [x])]
 
     results = compute_grad_accuracy(objs, methods,  d= d, l = d, h = h, reps=reps, device=device, dtype=dtype)
 

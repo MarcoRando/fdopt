@@ -23,7 +23,7 @@ os.makedirs(out_path, exist_ok=True)
 L = 20
 mu = 5
 d = 100
-dimensions = [1] + [i for i in range(5, 105,5)]#, 2, 3, 4, 5]#, 10, 20, 50, 100, 250, 450, 500]#, 10, 15, 20, 25, 30, 40, 50]#[i for i in range(2, 11)] #+ [15, 17, 20, 25, 30, 40, 50, 100, 200, 500]
+dimensions = [1, 5, 10, 15, 25, 50, 75, 85, 100]#[1] + [i for i in range(5, 105,5)]#, 2, 3, 4, 5]#, 10, 20, 50, 100, 250, 450, 500]#, 10, 15, 20, 25, 30, 40, 50]#[i for i in range(2, 11)] #+ [15, 17, 20, 25, 30, 40, 50, 100, 200, 500]
 reps = 200
 h = 1e-10
 with open(f"{out_path}/exp_info.log", 'w') as f:
@@ -36,18 +36,22 @@ with open(f"{out_path}/exp_info.log", 'w') as f:
     f.write(f"[--] h = {h}\n")
 
 t1 = SphereFunction(d = d, device=device, dtype=dtype) #LeastSquares(m = d, d=d, device=device, dtype=dtype, L = L, mu =mu)
+t2 = LeastSquares(m = d, d= d, device=device, dtype=dtype, L = 12, mu = 1)
 
-x1 = torch.ones((1, d), device=device, dtype=dtype)
-x2 = torch.tensor([i for i in range(d)], dtype=dtype, device=device).reshape(1, d) + 1e-10
-x3 = torch.tensor([i**2 + d for i in range(d)], device=device, dtype=dtype).reshape(1, d)
-num_points = 7
-xs = [x1, x2, x3] + [torch.rand(1, d, dtype=dtype, device=device, generator=gen) * 10 - 5 for _ in range(num_points)]
+#x1 = torch.ones((1, d), device=device, dtype=dtype)
+#x2 = torch.tensor([i for i in range(d)], dtype=dtype, device=device).reshape(1, d) + 1e-10
+#x3 = torch.tensor([i**2 + d for i in range(d)], device=device, dtype=dtype).reshape(1, d)
+#num_points = 7
+#xs = [x1, x2, x3] + [torch.rand(1, d, dtype=dtype, device=device, generator=gen) * 10 - 5 for _ in range(num_points)]
+x_max, x_min = 10.0, 2.0
+
+x = (x_max - x_min) * torch.rand((1, d), device=device, dtype=dtype, generator=gen) + x_min
 for l in dimensions:
     print(f"[++] Executing experiment with d = {d} l = {l}")
 
     methods = get_methods()
     methods = get_gsga_methods(methods)
-    objs = [(t1, xs)]
+    objs = [(t1, [x])]
 
     results = compute_grad_accuracy(objs, methods,  d= d, l = l, h = h, reps=reps, device=device, dtype=dtype)
 

@@ -4,12 +4,25 @@ import matplotlib.pyplot as plt
 matplotlib.rcParams['pdf.fonttype'] = 42
 matplotlib.rcParams['ps.fonttype'] = 42
 
-
 lw = 3
 alpha = 0.36
 fontsize = 20 
 ax_fontsize = 16
 legend_fontsize = 18
+
+
+class ConvCriterion:
+    def __init__(self, tau, f_L):
+        self.tau = tau
+        self.f_L = f_L
+        self.ratios = []
+        
+    def __call__(self, k, g_k, f_k, f_0):
+        ratio = ((f_k - self.f_L) / (f_0 - self.f_L) ).item()
+        self.ratios.append(ratio)
+        return ratio <= self.tau
+
+
 
 def plot_comparison(title, mean_value, std_value, x_label, y_label, labels, out_file, figsize=(10, 7), plot_legend = False, xscale = None, yscale=None):
     fig, ax = plt.subplots(1, 1, figsize=figsize)

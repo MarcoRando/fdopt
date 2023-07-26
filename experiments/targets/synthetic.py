@@ -18,6 +18,25 @@ class SphereFunction(BenchmarkFunction):
     def __call__(self, x: torch.Tensor) -> float:
         return self.add_noise(0.5 * x.square().sum(dim = 1, keepdim=True))
     
+class Quadratic(BenchmarkFunction):
+    def __init__(self, d: int, sigma: float = 0, seed: int = 121212, device: str = 'cpu', dtype: torch.dtype = torch.float64, alpha : float = 0.5, beta : float = 0.5) -> None:
+        x_star = torch.zeros((1, d), dtype=dtype, device=device)
+        fx_star = 0.0
+        super().__init__('Quadratic', d, x_star, fx_star, sigma, seed, device, dtype)
+        self.alpha = alpha
+        self.beta = beta
+        G = torch.randn((d, d), generator=self.generator, dtype = dtype, device = device)
+        self.A = G.T @ G
+    
+    def __call__(self, x: torch.Tensor) -> float:
+        t1 = self.alpha * ((x**4).sum(dtype=self.dtype, dim=1, keepdim=True))
+        t2 = torch.zeros((x.shape[0], 1), dtype=self.dtype, device=self.device)
+        for i in range(x.shape[0]):
+            t2[i] = 0.5 * (x[i, :] @ (self.A @ x[i, :]))
+        t3 = self.beta * torch.linalg.norm(x, dim = 1, keepdim=True).square()
+        return self.add_noise(t1 + t2 + t3)
+    
+    
 class SparseSphere(BenchmarkFunction):
     def __init__(self, d : int, s : int, sigma: float = 0, seed: int = 121212, device: str = 'cpu', dtype: torch.dtype = torch.float64) -> None:
         assert s < d, "sparsity must be smaller that d"
@@ -39,7 +58,7 @@ class SparseSphere(BenchmarkFunction):
 class LeastSquares(BenchmarkFunction):
     def __init__(self, m :int,  d : int, sigma: float = 0, seed: int = 121212, device: str = 'cpu', dtype: torch.dtype = torch.float64, x_star : torch.Tensor | None = None, L : float = None, mu : float=None) -> None:
         x_star = torch.tensor([[i for i in range(d)]], dtype = dtype, device=device).reshape(1, d) if x_star is None else x_star 
-        super().__init__("LeastSquares", d = d, x_star = x_star, fx_star= 0.0, sigma = sigma, seed = seed, device = device, dtype = dtype)
+        super().__init__(f"LeastSquares_{m}", d = d, x_star = x_star, fx_star= 0.0, sigma = sigma, seed = seed, device = device, dtype = dtype)
         self.m = m
         self.A = torch.randn(self.m, self.d, device=device, dtype=dtype, generator=self.generator)
         if L is not None and mu is not None:
@@ -62,5 +81,5 @@ class LeastSquares(BenchmarkFunction):
         fx = torch.zeros(x.shape[0], dtype=self.dtype, device=self.device)
         for i in range(x.shape[0]):
             fx[i] = self.add_noise(0.5 * (torch.linalg.norm((self.A.mv(x[i])).reshape(-1, 1) - self.y, keepdim=True, ord=2).square()))
-        return fx
+        return fx.reshape(-1, 1)
     

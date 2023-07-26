@@ -24,7 +24,7 @@ def get_methods(add_li = False):
     }
     if add_li:
         method_labels['LI'] = LinInterpolation
-        method_labels['CLI'] = CentralLinInterpolation
+#        method_labels['CLI'] = CentralLinInterpolation
     direction_labels = {
         'G' : GaussianDirections, 
         'SP' : SphericalDirections, 
@@ -39,6 +39,8 @@ def get_methods(add_li = False):
 def get_gsga_methods(methods):
     
     direction_labels = {
+#        'G' : GaussianDirections,
+#        'SP' : SphericalDirections,
         'CO' : CoordinateDirections, 
         'QR' : QRDirections}
     for (k_d, dirs) in direction_labels.items():
@@ -74,6 +76,7 @@ def compute_grad_accuracy(targets, methods, d, l, h = 1e-10, reps = 10, device =
                 tm = []
                 fx = target(x)
                 gx = grad(x)
+                _ = g(x, fx, h)
                 for _ in range(reps):
                     g_time = time.time()
                     g_app = g(x, fx, h)

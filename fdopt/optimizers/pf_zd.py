@@ -14,6 +14,7 @@ class PFZD(Optimizer):
     def optimize(self, x_0: torch.Tensor, T: int = 100, num_split : int = 50, gamma_space : Tuple = (1e-7, 1e-1), return_trace : bool = False, convergence_criterion = None) -> Dict[str, Any]:
         budget_per_run = T // num_split
 #        print("num iters per split", budget_per_run)
+#        exit()
         assert budget_per_run > 0
         best_obs = (None, None)
         gmin, gmax = gamma_space
@@ -26,8 +27,8 @@ class PFZD(Optimizer):
             self.optimizer.gamma = ConstantStepsize(gmean)
             ris = self.optimizer.optimize( x_0 = x_0, T = budget_per_run, convergence_criterion=convergence_criterion, return_trace = return_trace)
             fx = ris['fx'].item()
-            ris['iterations'] += num_iters
-            num_iters = ris['iterations']
+            num_iters += ris['iterations']
+#            print(ris['converged'], num_iters)
             if return_trace:
                 trace += ris['trace']                
             if fx != fx or fx > f0:
@@ -38,6 +39,7 @@ class PFZD(Optimizer):
             else:
                 gmin = gmean
             if fx == fx and (best_obs[1] is None or fx < best_obs[1]):
+                ris['iterations'] = num_iters
                 best_obs = (ris, fx)
             if convergence_criterion is not None and ris['converged']:
                 return best_obs[0]

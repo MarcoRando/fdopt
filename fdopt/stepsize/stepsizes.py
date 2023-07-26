@@ -29,15 +29,21 @@ class ConstantStepsize(Stepsize):
 class PolyakStepsize(Stepsize):
     
     
-    def __init__(self, gamma_0 : float, f_min : float = None, eps : Callable[[int], float] = None) -> None:
+    def __init__(self, gamma_0 : float, f_min : float = None, eps : Callable[[int], float] | None = None) -> None:
         assert f_min is not None or eps is not None
         self.gamma_0 = gamma_0
         self.f_min = f_min
         self.eps = eps
-        self.__call__ = self._full_polyak if eps is None else self._app_polyak
+#        self.__call__ = self._full_polyak if eps is None else self._app_polyak
+
+    def __call__(self, k: int, fx: torch.Tensor | float = None, gk: torch.Tensor = None) -> float:
+        if self.eps is None:
+            return self._full_polyak(k, fx, gk,)
+        return self._app_polyak(k, fx, gk)
 
     def _full_polyak(self, k : int, fx : Union[torch.Tensor, float] = None, gk : torch.Tensor = None ) -> float:
-        sq_norm = gk.norm().square()
+        sq_norm = torch.linalg.norm(gk, ord=2)#.square()
+#        print(f"\t[--] Norm: {sq_norm}")
         return self.gamma_0 * ((fx - self.f_min)/sq_norm)
 
         
