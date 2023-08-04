@@ -22,3 +22,16 @@ class QRDirections(DirectionGenerator):
 
     def __str__(self):
         return f"QR_{self.d}_{self.l}"
+
+class SingleHouseholder(DirectionGenerator):
+    def __init__(self, d: int, l: int = 1, dtype: torch.dtype = torch.float64, device: str = 'cpu', seed: int = 121212) -> None:
+        super().__init__(d, l, dtype, device, seed)
+        self.I = torch.eye(l, d, dtype=dtype, device=device).to_sparse()
+
+    def __call__(self) -> torch.Tensor:
+        v = torch.randn(self.d, dtype=self.dtype, device=self.device, generator=self.generator)
+        v /= torch.linalg.norm(v, ord=2)
+        return self.I - 2 * v[:self.l].outer(v)
+
+    def __str__(self):
+        return f"Householder_{self.d}_{self.l}"

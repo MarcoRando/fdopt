@@ -4,6 +4,9 @@
 ZO-BCD/
 ZORO/
 */cutest/*
+cutest
+.vscode
+pycutest_cache
 
 # Images and logs
 *.png
