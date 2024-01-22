@@ -7,41 +7,41 @@ from fdopt.grad_estimators.grad_estimators import GradEstimator
 
 
 class ZD(Optimizer):
-
-    def __init__(self, g : GradEstimator, gamma : Stepsize, h: Stepsize) -> None:
-        self.g = g
-        self.gamma = gamma
-        self.h = h
-
-    @property
-    def f(self):
-        return self.g.f        
     
-    def optimize(self, x_0: torch.Tensor, T: int | None = 100, convergence_criterion : Callable | None = None, return_trace : bool = False) -> Dict:
-        assert T is not None or convergence_criterion is not None, "You have to pass a maximum number of iteration (T) or a convergence criterion!"
-        x_k = x_0.clone()
-        f_0 = f_k = self.f(x_k)
-        g_k = None
-        trace = [(x_k, f_k)] if return_trace else None
-        k = 0
-        while (T is None or k < T): 
-            if (convergence_criterion is not None and convergence_criterion(k, g_k, f_k, f_0)):
+    def __init__(self, sigma = lambda t : 0.0, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self.sigma = sigma
+
+    def _approximate_grad(self, x):
+        P = self.P()
+        h = self.h(self.t)
+        fx = self.target(x)
+        g = torch.zeros_like(x, dtype=self.P.dtype, device=self.P.device)
+        for i in range(P.shape[0]):
+            g += ((self.target(x + h * P[i]) - fx) / h) * P[i]
+        return g, fx
+
+    def step(self):            
+        g, fx = self._approximate_grad(self.x)
+        x_new = self.x - self.gamma * g
+        fx_new = self.target(x_new)
+        g_norm = torch.linalg.norm(g, ord=2).square()
+        num_evals = self.P.l + 2
+        while fx_new > fx -  self.gamma * self.armijo_constant * g_norm:
+            self.gamma = max(self.gamma * self.theta, self.min_gamma)
+            x_new = self.x - self.gamma * g
+            if self.gamma == self.min_gamma:
                 break
-            h_k = self.h(k)
-            g_k = self.g(x = x_k, fx=f_k, h=h_k)
-            gamma_k = self.gamma(k=k, fx=f_k, gk=g_k)
-            x_k = x_k - gamma_k * g_k
-            f_k = self.f(x_k)
-#            print(f"\t > f(x) = {f_k}")##
-            if return_trace:
-                trace.append((x_k, f_k)) 
-            self.g.update(x_k, g_k)
-            self.gamma.update(x_k, f_k)
-            k += 1
-        converged = None if convergence_criterion is None else convergence_criterion(k, g_k, f_k, f_0)
-        return self._build_result(x_k, f_k, k, trace=trace, converged=converged)
-            
+            fx_new = self.target(x_new)
+            num_evals += 1
+        err = torch.randn(x_new.shape, generator=self.generator, dtype = self.P.dtype)
+        self.x = x_new + self.sigma(self.t) * err
+        self.gamma = min(self.gamma * self.rho, self.max_gamma)
+        self.t += 1
+        return self.target(self.x), num_evals
+        
+    def __str__(self) -> str:
+        return str(self.g)
+    
     def reset(self):
-        self.g.reset()
-        self.gamma.reset()
-        self.h.reset()
+        return super().reset()

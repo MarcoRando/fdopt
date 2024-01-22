@@ -8,16 +8,28 @@ from fdopt.direction_generators import DirectionGenerator
 
 class Optimizer:
         
-    def _build_result(self, x : torch.Tensor, fx : float, k : int, trace = None, converged = None):
-        result = {'x' : x, 'fx' : fx, 'iterations' : k}
-        if trace is not None:
-            result['trace'] = trace
-        if converged is not None:
-            result['converged'] = converged
-        return result
-    
-    def optimize(self, f : Callable, x_0 : torch.Tensor, T : int | None = None, convergence_criterion : Callable | None = None) -> Dict[str, Any]:
-        raise NotImplementedError("This method is implemented in subclasses!")
+    def __init__(self, target, x, P, gamma, theta, rho, armijo_constant, min_gamma, max_gamma, h, seed = 121314) -> None:
+        self.target = target
+        self.x = x
+        self.P = P
+        self.theta = theta
+        self.rho = rho
+        self.gamma = gamma
+        self.min_gamma = min_gamma
+        self.max_gamma = max_gamma
+        self.armijo_constant = armijo_constant
+        self.h = h
+        self.t = 1
+        self.generator = torch.Generator(P.device)
+        self.generator.manual_seed(seed)
+        
+    @property
+    def d(self):
+        return self.P.d
+
+    @property
+    def l(self):
+        return self.P.l
 
     def reset(self):
-        pass
+        self.t += 1

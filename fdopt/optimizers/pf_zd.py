@@ -30,7 +30,7 @@ class PFZD(Optimizer):
             num_iters += ris['iterations']
 #            print(ris['converged'], num_iters)
             if return_trace:
-                trace += ris['trace']                
+                trace = ris['trace']                
             if fx != fx or fx > f0:
                 gmax = gmean
             elif fx < c_val:
@@ -40,6 +40,9 @@ class PFZD(Optimizer):
                 gmin = gmean
             if fx == fx and (best_obs[1] is None or fx < best_obs[1]):
                 ris['iterations'] = num_iters
+                ris['best_gamma'] = gmean
+                if return_trace:
+                    ris['trace'] = trace
                 best_obs = (ris, fx)
             if convergence_criterion is not None and ris['converged']:
                 return best_obs[0]
@@ -49,4 +52,6 @@ class PFZD(Optimizer):
     def reset(self):
         self.optimizer.reset()
     
+    def __str__(self) -> str:
+        return "PFZD_{}".format(str(self.optimizer))
     

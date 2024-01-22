@@ -8,7 +8,7 @@ class DirectionGenerator:
         self.dtype = dtype
         self.device = device
         self.seed = seed
-        self.generator = torch.Generator(device = device)
+        self.generator = torch.Generator(device=device)
         self.generator.manual_seed(seed)
         
     def __call__(self) -> torch.Tensor:

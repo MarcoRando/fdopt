@@ -1,7 +1,0 @@
-[--] L = 20
-[--] mu = 5
-[--] dimensions = [1, 5, 10, 15, 25, 50, 75, 85, 100]
-[--] device = cpu
-[--] dtype = torch.float64
-[--] reps = 200
-[--] h = 1e-10
