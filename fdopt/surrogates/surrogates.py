@@ -19,6 +19,11 @@ class ForwardFD(FDSurrogate):
         for i in range(P.shape[0]):
             g += ((target(x + h * P[i]) - fx) / h) * P[i]
         return g
+    
+class OptimizedForwardFD(FDSurrogate):
+    def __call__(self, target, x, h, P):
+        y = target(x + h * P).add(target(x), alpha=-1).div_(h)
+        return torch.linalg.lstsq((P.shape[0]/P.shape[1]) * P, y)[0]
 
 class CentralFD(FDSurrogate):
     

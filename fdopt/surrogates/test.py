@@ -1,6 +1,6 @@
 import torch
 import time
-from surrogates import ForwardFD, CentralFD
+from surrogates import ForwardFD, CentralFD, OptimizedForwardFD
 
 from fdopt.direction_generators import Householder, SphericalDirections
 
@@ -11,10 +11,10 @@ def f(x):
 def grad_f(x):
     return 2 * x
 
-d = 1000
+d = 5
 P = Householder(d = d, l = d)
 
-g = CentralFD(vectorized=True)
+g = OptimizedForwardFD() #OptCentralFD(vectorized=True)
 
 x0 = torch.tensor([i for i in range(d)], dtype=torch.float64).reshape(1, -1)
 g_time = time.time()
