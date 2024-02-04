@@ -9,7 +9,7 @@ matrices = [
     ("spherical", SphericalDirections),
     ("householder", Householder),
     ("coordinate", CoordinateDirections),
-#    ("gaussian", GaussianDirections),
+    ("gaussian", GaussianDirections),
     ("butterfly", ButterflyMatrix),
     ("qr", QRDirections),
 #    ("butterfly_dct", ButterflyMatrix)
@@ -25,8 +25,8 @@ def compute_cost(matrix_generator, reps=10):
         time_costs.append(it_time)
     return np.mean(time_costs), np.std(time_costs)
 
-dimensions = [1, 2, 10, 12, 15, 20, 50, 100, 150, 200, 500, 1000, 2000, 5000, 8000, 10000]#[8000]#[1, 2, 3, 4, 5, 10, 12, 15, 20, 25, 50, 100, 150, 200, 500, 1000, 2000, 5000]#, 10000]
-reps = 100
+dimensions = [1, 2, 10, 12, 15, 20, 50, 100, 150, 200, 500, 1000, 2000, 5000, 8000]#, 10000]
+reps = 10#0
 out_dir ="./results/time_cost"
 os.makedirs(out_dir, exist_ok=True)
 for d in dimensions:

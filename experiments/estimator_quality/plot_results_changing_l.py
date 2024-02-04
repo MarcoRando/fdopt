@@ -41,7 +41,7 @@ latex_formulas = {
 
 def read_results(input_dirs, fun_name, d, l_list):
     results = {}
-    elem1, elem2 = 3, 4
+    elem1, elem2 = 1, 2
     for input_dir in input_dirs:
         for l in l_list:
             with open("{}/{}_{}_{}.log".format(input_dir, fun_name, d, l), 'r') as f:
@@ -53,8 +53,8 @@ def read_results(input_dirs, fun_name, d, l_list):
                         results[splitted[0]][0].append(float(splitted[elem1]))
                         results[splitted[0]][1].append(float(splitted[elem2]))            
     return results
-#paths = [input_dir, './results/changing_l/optimized']
-paths = [input_dir]
+paths = [input_dir, './results/changing_l/optimized']
+#paths = [input_dir]
 for (d, l_list) in dimensions.items():
     print(f"[--] Plotting results for $d = {d}$")
     result_per_functions = {}
@@ -62,8 +62,8 @@ for (d, l_list) in dimensions.items():
         
         result_per_functions[fun_name] =read_results(paths, fun_name, d, l_list)
 
-    fig, axes = plt.subplots(2, 3, figsize=(16, 8))
-    fig.suptitle("Approximation error ($d = {}$)".format(d), fontsize=20)
+    fig, axes = plt.subplots(2, 3, figsize=(20, 12))
+    fig.suptitle("Approximation Error ($d = {}$) using Forward Finite-Differences".format(d), fontsize=20)
     line1, line2 = axes[0], axes[1]
     for i in range(len(functions) // 2):
         result_fun = result_per_functions[functions[i]]    
@@ -83,8 +83,8 @@ for (d, l_list) in dimensions.items():
         line1[i].set_xscale('log')
         if i == 0:
             line1[i].legend(fontsize=12)
-        line1[i].set_xlabel("$d$", fontsize=14)
-        line1[i].set_ylabel("Time ($s$)", fontsize=14)
+        line1[i].set_xlabel("$\ell$", fontsize=14)
+        line1[i].set_ylabel("Approximation Error", fontsize=14)
 
     for i in range(len(functions) // 2, len(functions)):
         result_fun = result_per_functions[functions[i]]   
@@ -99,10 +99,10 @@ for (d, l_list) in dimensions.items():
         line2[i - 3].set_title(functions[i], fontsize=14)
         line2[i - 3].set_yscale('log')
         line2[i - 3].set_xscale('log')
-        line2[i - 3].set_xlabel("$d$", fontsize=14)
-        line2[i - 3].set_ylabel("Time ($s$)", fontsize=14)
+        line2[i - 3].set_xlabel("$\ell$", fontsize=14)
+        line2[i - 3].set_ylabel("Approximation Error", fontsize=14)
     fig.tight_layout()
-    fig.savefig(f"{input_dir}/estimator_quality_l_{d}_time.pdf", bbox_inches='tight')
+    fig.savefig(f"{input_dir}/estimator_quality_l_{d}_err.pdf", bbox_inches='tight')
     plt.close(fig)
     #print(line1)
     #print(result_per_functions)
