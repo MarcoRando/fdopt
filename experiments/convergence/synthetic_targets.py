@@ -21,6 +21,20 @@ class SumOfSquares(TargetFunction):
     def grad(self, x):
         return x.mul(2.0)
     
+class SparseSOS(TargetFunction):
+    def __init__(self, num_components, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.num_components = num_components
+        self.indices = torch.ones(self.d).multinomial(num_components, replacement=False, generator=self.generator)
+
+    def __call__(self, x):
+        return x[:, self.indices].square().sum(dim = 1)
+    
+    def grad(self, x):
+        g = torch.zeros(x.shape[0], x.shape[1], dtype=x.dtype, device=self.device)
+        g[x.shape[0], self.indices] = x[:, self.indices].mul(2.0)
+        return g
+    
 class L1Norm(TargetFunction):
     
     def __call__(self, x):

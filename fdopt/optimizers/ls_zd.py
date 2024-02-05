@@ -1,9 +1,7 @@
 import torch
 
 import numpy as np
-from fdopt.optimizers.zd import ZD
 from typing import Callable, Dict, Iterable
-#from fdopt.stepsize.stepsizes import ConstantStepsize, Stepsize
 from fdopt.grad_estimators.grad_estimators import GradEstimator
 from fdopt.direction_generators.generator import DirectionGenerator
 
@@ -41,6 +39,7 @@ class LSZD:
             num_evals += P_k.shape[0] + 1
             while self.f(x_k - gamma * g_k) >= f_k - gamma * self.armijo_constant * g_k_norm:
                 num_evals += 1
+                print("\t[LS] f = {}\tgamma = {}".format(self.f(x_k - gamma * g_k).cpu().item(), gamma))
                 gamma = gamma * self.theta
                 if gamma <= self.min_gamma:
                     break
@@ -48,7 +47,7 @@ class LSZD:
             gamma = min(gamma * self.rho, self.max_gamma)
             f_k = self.f(x_k)
             if verbose:
-                print("[--] f_k = {}".format(f_k))
+                print("[--] f_k = {}".format(f_k.cpu().item()))
             if return_trace:
                 trace.append((x_k, f_k)) 
             k += 1

@@ -1,57 +1,62 @@
 import torch
-from numpy import mean
-from fdopt.optimizers.opt import Optimizer
-from typing import Any, Callable, Dict, Tuple
-from fdopt.stepsize.stepsizes import ConstantStepsize
+
+import numpy as np
+from typing import Callable, Dict, Iterable
 from fdopt.grad_estimators.grad_estimators import GradEstimator
+from fdopt.direction_generators.generator import DirectionGenerator
 
+class PFZD:
 
-class PFZD(Optimizer):
+    def __init__(self, target, g : GradEstimator, P: DirectionGenerator,h: float, num_splits = 3, max_gamma = 10.0, min_gamma=1e-5) -> None:
+        self.f = target
+        self.g = g
+        self.h =h
+        self.num_splits = num_splits
+        self.P = P
+        self.max_gamma = max_gamma
+        self.min_gamma = min_gamma
     
-    def __init__(self, optimizer : Optimizer) -> None:
-        self.optimizer = optimizer
-        
-    def optimize(self, x_0: torch.Tensor, T: int = 100, num_split : int = 50, gamma_space : Tuple = (1e-7, 1e-1), return_trace : bool = False, convergence_criterion = None) -> Dict[str, Any]:
-        budget_per_run = T // num_split
-#        print("num iters per split", budget_per_run)
-#        exit()
-        assert budget_per_run > 0
-        best_obs = (None, None)
-        gmin, gmax = gamma_space
-        c_val = f0 = self.optimizer.f(x_0)
-        trace = [(x_0, f0)]
-        num_iters = 0
-        for _ in range(num_split):
-            gmean = mean([gmin, gmax])
-            self.optimizer.reset()
-            self.optimizer.gamma = ConstantStepsize(gmean)
-            ris = self.optimizer.optimize( x_0 = x_0, T = budget_per_run, convergence_criterion=convergence_criterion, return_trace = return_trace)
-            fx = ris['fx'].item()
-            num_iters += ris['iterations']
-#            print(ris['converged'], num_iters)
-            if return_trace:
-                trace = ris['trace']                
-            if fx != fx or fx > f0:
-                gmax = gmean
-            elif fx < c_val:
-                gmax = gmean
-                c_val = fx
-            else:
-                gmin = gmean
-            if fx == fx and (best_obs[1] is None or fx < best_obs[1]):
-                ris['iterations'] = num_iters
-                ris['best_gamma'] = gmean
-                if return_trace:
-                    ris['trace'] = trace
-                best_obs = (ris, fx)
-            if convergence_criterion is not None and ris['converged']:
-                return best_obs[0]
+    def _zd_descent(self, x0, f_star, T, gamma, eps):
+        x_k = x0.clone()
+        f_0 = f_k = self.f(x_k)
+        trace = []
+        num_evals = 0
+        converged = False
+        for k in range(T):    
+            if  abs(f_k - f_star)<eps :
+                converged = True
+                break
+            h_k = self.h(k)
+            P_k = self.P()
+            g_k = self.g(self.f, x = x_k, h=h_k, P=P_k)
+            num_evals += P_k.shape[0] + 1
+            x_k = x_k - gamma * g_k
+            f_k = self.f(x_k)
+            # if verbose:
+            #     print("[--] f_k = {}".format(f_k.cpu().item()))
+            trace.append((x_k, f_k)) 
+        return trace, num_evals, converged
 
-        return best_obs[0]
             
-    def reset(self):
-        self.optimizer.reset()
     
-    def __str__(self) -> str:
-        return "PFZD_{}".format(str(self.optimizer))
-    
+    def optimize(self, x_0: np.ndarray, f_star, T: int | None = 100, eps=1e-3, verbose = False) -> Dict:
+        x_k = x_0.clone()
+        f_k = self.f(x_k)
+        trace = [(x_k, f_k)] 
+        num_evals = 0
+        T_split = T // self.num_splits
+        best_num_evals = np.inf
+        max_gamma, min_gamma =self.max_gamma, self.min_gamma
+        best_gamma = (max_gamma + min_gamma) / 2
+        for i in range(self.num_splits + 1):
+            gamma = (max_gamma + min_gamma) / 2
+            split_trace, split_evals, split_converged = self._zd_descent(x_k, f_star, T_split, gamma, eps)
+            num_evals += split_evals
+            trace += split_trace
+            if split_converged and split_evals <= best_num_evals:
+                best_gamma = min_gamma = gamma
+                print("\tConverged with gamma = {}".format(gamma))
+                break
+            else:
+                max_gamma = gamma
+        return num_evals
