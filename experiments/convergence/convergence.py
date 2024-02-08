@@ -6,7 +6,7 @@ from synthetic_targets import SumOfSquares, LeastSquares, L1Norm
 
 from fdopt.direction_generators import *
 from fdopt.surrogates import ForwardFD, CentralFD, OptimizedForwardFD
-from fdopt.optimizers import LSZD, PFZD
+from fdopt.optimizers import LSZD, PFZD, PolyakZD
 
 
 def optimize_test(label, opt, x0, f_star, eps, T, reps = 10):
@@ -34,7 +34,7 @@ for d in dimensions:
     # l = 10
     l = d // 2
     dtype = torch.float64
-    target = LeastSquares(d = d, L=2, mu=1, dtype=dtype)
+    target = LeastSquares(d = d, L=1, mu=0.1, dtype=dtype)
     g = ForwardFD(vectorized=True)
     g_opt = OptimizedForwardFD()
     h = lambda t : 1e-9
@@ -45,7 +45,7 @@ for d in dimensions:
     fname="LeastSquares"
     directions = [
         ('householder', Householder(d=d, l=l, dtype=dtype)),
-        #('butterfly', ButterflyMatrix(d=d, l=l,dct=True, dtype=dtype)),
+        ('butterfly', ButterflyMatrix(d=d, l=l,dct=True, dtype=dtype)),
         ('coordinate', CoordinateDirections(d=d, l=l, dtype=dtype, store_identity=True)),
         ('spherical', SphericalDirections(d=d, l=l, dtype=dtype)),
         ('qr', QRDirections(d=d,l=l, dtype=dtype)),
@@ -56,15 +56,15 @@ for d in dimensions:
 
     for (label, P) in directions:
         if 'optimized' in label:
-            opt = PFZD(target=target,
+            opt = PolyakZD(target=target,
                     g = g_opt, 
                     P = P, 
-                    h=h,  num_splits = num_splits,
-                    max_gamma = max_gamma, min_gamma=min_gamma)        
+                    h=h, gamma_0=l/d)
+#                    max_gamma = max_gamma, min_gamma=min_gamma)        
         else:
-            opt = PFZD(target=target,
-                    g = g, num_splits = num_splits,
-                    P = P, max_gamma = max_gamma, min_gamma=min_gamma,
+            opt = PolyakZD(target=target,
+                    g = g,
+                    P = P, gamma_0=l/d,#max_gamma = max_gamma, min_gamma=min_gamma,
                     h=h)
         mu_evals, std_evals, mu_tms, std_tms = optimize_test(label, opt, x_0, f_star=0.0, eps=1e-3, T=T, reps=5)
         with open(f"{out_dir}/{fname}_{d}_{l}.log", 'a') as f:

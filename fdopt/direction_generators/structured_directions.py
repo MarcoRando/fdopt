@@ -41,17 +41,14 @@ class QRDirections(DirectionGenerator):
     
 class Householder(DirectionGenerator):
     
-    def __init__(self, num_reflection : int = 1, **kwargs) -> None:
+    def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
-        self.I_l = torch.eye(self.l, self.d, device=self.device, dtype=self.dtype)
-        if num_reflection > 1:
-            self.I = torch.eye(self.d, self.d, device=self.device, dtype=self.dtype)
-        self.num_reflection = num_reflection
+        self.I_l = torch.eye(self.d, self.l, device=self.device, dtype=self.dtype)
             
     def __call__(self) -> torch.Tensor:
         v =  torch.randn(self.d, generator=self.generator, device = self.device, dtype=self.dtype)
-        v /= torch.linalg.norm(v, ord=2)
-        return self.I_l - 2 * torch.outer(v, v[:self.l]).T# - A.T))[:self.l, :]
+        v /= v.norm(p=2)
+        return (self.I_l - 2 * v.outer(v[:self.l])).T
 
     def __str__(self):
         return f"Householder_{self.d}_{self.l}"
