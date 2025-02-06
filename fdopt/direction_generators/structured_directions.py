@@ -21,10 +21,10 @@ class CoordinateDirections(DirectionGenerator):
         if self.store_identity:# or self.l == self.d:
             return self.I
         elif self.store_identity and self.l < self.d:
-            inds = torch.multinomial(torch.ones(self.d, dtype=self.dtype), num_samples=self.l, replacement=False, generator=self.generator) 
+            inds = torch.multinomial(torch.ones(self.d, dtype=self.dtype, device=self.device), num_samples=self.l, replacement=False, generator=self.generator) 
             return self.I[inds, :]
         I = torch.zeros((self.l, self.d), dtype = self.dtype, device=self.device)
-        inds = torch.multinomial(torch.ones(self.d, dtype=self.dtype), num_samples=self.l, replacement=False, generator=self.generator) 
+        inds = torch.multinomial(torch.ones(self.d, dtype=self.dtype, device=self.device), num_samples=self.l, replacement=False, generator=self.generator) 
         I[range(self.l), inds] = 1.0
         return I
     
@@ -38,6 +38,15 @@ class QRDirections(DirectionGenerator):
 
     def __str__(self):
         return f"QR_{self.d}_{self.l}"
+
+class SVDDirections(DirectionGenerator):
+    def __call__(self) -> torch.Tensor:
+        P = torch.randn(self.d, self.l, generator=self.generator, dtype=self.dtype, device = self.device)
+        return torch.linalg.svd(P, full_matrices=False)[0].T
+
+    def __str__(self):
+        return f"QR_{self.d}_{self.l}"
+
     
 class Householder(DirectionGenerator):
     
@@ -46,7 +55,7 @@ class Householder(DirectionGenerator):
         self.I_l = torch.eye(self.d, self.l, device=self.device, dtype=self.dtype)
             
     def __call__(self) -> torch.Tensor:
-        v =  torch.randn(self.d, generator=self.generator, device = self.device, dtype=self.dtype)
+        v =  torch.randn(self.d, generator=self.generator, dtype=self.dtype,  device = self.device, )
         v /= v.norm(p=2)
         return (self.I_l - 2 * v.outer(v[:self.l])).T
 
@@ -72,9 +81,9 @@ class ButterflyMatrix(DirectionGenerator):
         if self.d == B.shape[0]:
             return B[:, :self.l].T
         d_eff = B.shape[1]  
-        B = torch.vstack([B, torch.zeros(self.d - B.shape[0], B.shape[1])])
+        B = torch.vstack([B, torch.zeros(self.d - B.shape[0], B.shape[1], dtype=self.dtype, device=self.device)])
         if B.shape[1] < self.l:
-            B = torch.hstack([B, torch.zeros(B.shape[0], self.l - B.shape[1] )])
+            B = torch.hstack([B, torch.zeros(B.shape[0], self.l - B.shape[1], dtype=self.dtype, device=self.device )])
             B[range(d_eff, self.l), range(d_eff, self.l)] = 1.0
 
         return dct(B.T, norm='ortho') if self.dct else B.T

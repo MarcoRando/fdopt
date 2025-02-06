@@ -8,16 +8,10 @@ from fdopt.direction_generators import DirectionGenerator
 
 class Optimizer:
         
-    def __init__(self, target, x, P, gamma, theta, rho, armijo_constant, min_gamma, max_gamma, h, seed = 121314) -> None:
-        self.target = target
+    def __init__(self, x, P, gamma, h, seed = 121314) -> None:
         self.x = x
         self.P = P
-        self.theta = theta
-        self.rho = rho
         self.gamma = gamma
-        self.min_gamma = min_gamma
-        self.max_gamma = max_gamma
-        self.armijo_constant = armijo_constant
         self.h = h
         self.t = 1
         self.generator = torch.Generator(P.device)
@@ -30,6 +24,13 @@ class Optimizer:
     @property
     def l(self):
         return self.P.l
+
+    def ask(self):
+        raise NotImplementedError
+    
+    def tell(self, X, y):
+        raise NotImplementedError
+
 
     def reset(self):
         self.t += 1
