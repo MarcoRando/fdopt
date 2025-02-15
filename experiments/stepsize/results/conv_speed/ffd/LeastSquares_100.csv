@@ -1,0 +1,3 @@
+directions,gamma,mu_last_val,std_last_val,mu_time,std_time
+spherical,<fdopt.stepsize.stepsize.PolyakStep object at 0x7f422d9d99c0>,0.014578759315540781,0.007756109619002934,0.7310587406158447,0.040538687271411786
+householder,<fdopt.stepsize.stepsize.PolyakStep object at 0x7f422d9d99c0>,2.2105175415802637e-05,1.4399975359704328e-05,0.7511960029602051,0.003275796507658154

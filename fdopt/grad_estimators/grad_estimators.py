@@ -2,6 +2,8 @@ import torch
 
 from torch_dct import dct
 
+from numba import njit, prange
+
 from typing import Union, Callable, Dict
 
 from fdopt.direction_generators.generator import DirectionGenerator
@@ -23,41 +25,44 @@ class GradEstimator:
 class ForwardFD(GradEstimator):
     
     def __call__(self, f : Callable[[torch.Tensor], torch.Tensor], x : torch.Tensor, f_x : float, P : torch.Tensor, h : float):
-        #        return f(x + h * P, z).add_(fx, alpha=-1).div_(h).mul(P).sum(dim=0, keepdims=True).mul_(P.shape[1] / P.shape[0])
-
-        #print((f(x.add(P, alpha=h)) - f_k) * P)
-        # g_n = torch.zeros_like(x)
+        # g = torch.zeros_like(x)
         # for i in range(P.shape[0]):
-        #     g_n += ((f(x + h * P[i]) - f_x)/h) * P[i]
-        # g_n *= self.nrm_const
+        #     g+= ((f(x + h * P[i]) - f_x )/h) * P[i]
+        # g *= self.nrm_const
+        # return g
+        return ((f(x + h * P) - f_x).div(h) * P.T).sum(dim=1, keepdims=True).mul(self.nrm_const).T
         
-        return f(x + h * P).add_(f_x, alpha=-1).div_(h).mul(P).sum(dim=0, keepdims=True).mul_(self.nrm_const)
-#        assert torch.all(g == g_n)
- #       return g
-#        return f(x + h * P).add_(f_x, alpha=-1).div_(h).mul(P).sum(dim=0, keepdims=True).mul_(self.nrm_const)
-#        return (f(x.add(P, alpha=h)) - f_k).mul(P).div(h).sum(dim=0, keepdims=True).mul_(self.nrm_const)
+
+class CentralFD(GradEstimator):
         
-# class ForwardFD(GradEstimator):
+    def __call__(self, f : Callable[[torch.Tensor], torch.Tensor], x : torch.Tensor, f_x : float, P : torch.Tensor, h : float):
+        return ((f(x + h * P) - f(x - h * P)).div(2*h) * P.T).sum(dim=1, keepdims=True).mul(self.nrm_const).T
+        
+class OptFFD(GradEstimator):
+    
+    def __call__(self, f : Callable[[torch.Tensor], torch.Tensor], x : torch.Tensor, f_x : float, P : torch.Tensor, h : float):
+        alpha = (f(x + h * P) - f_x)/h
+        return torch.linalg.lstsq(P, alpha)[0].reshape(1, -1)
+
+class OptCFD(GradEstimator):
+    
+    def __call__(self, f : Callable[[torch.Tensor], torch.Tensor], x : torch.Tensor, f_x : float, P : torch.Tensor, h : float):
+        f_plus = f(x + h * P).reshape(-1)
+        f_min = f(x - h * P).reshape(-1)
+        g_plus = torch.linalg.solve(h * P, f_plus)
+        g_min = torch.linalg.solve(h * P, f_min)
+        return (g_plus - g_min) / 2
+
+# class CentralLinInterpolation(LinInterpolation):
         
 #     def __call__(self, x : torch.Tensor, fx : Union[torch.Tensor, float], h : float):
 #         P = self.P()
-#         g= (self.f(x.add(P, alpha=h)) - fx).mul(P).div(h).sum(dim=0, keepdims=True).mul_(self.nrm_const)
-# #        print(g)
-#         return g
+#         f_plus  = (self.f(x.add(P, alpha=h))).reshape(-1)
+#         f_minus = (self.f(x.add(P, alpha=-h))).reshape(-1)
+#         g_plus  = torch.linalg.solve(h * P, f_plus) 
+#         g_minus = torch.linalg.solve(h * P, f_minus)
+#         return (g_plus - g_minus)/2
 
-#     def __str__(self):
-#         return f"FFD_{self.P}"
-
-        
-
-# class CentralFD(GradEstimator):
-        
-#     def __call__(self, x : torch.Tensor, fx : Union[torch.Tensor, float], h : float):
-#         P = self.P()
-#         return (self.f(x.add(P, alpha=h)) - self.f(x.add(P, alpha=-h))).mul(P).div(2 * h).sum(dim=0, keepdims=True).mul_(self.nrm_const)
-        
-#     def __str__(self):
-#         return f"CFD_{str(self.P)}"
 
         
 # class SinglePointEstimator(GradEstimator):

@@ -1,10 +1,12 @@
-from fdopt.grad_estimators.grad_estimators import GradEstimator, ForwardFD
+from fdopt.grad_estimators.grad_estimators import GradEstimator, ForwardFD, CentralFD, OptFFD, OptCFD
 
 
 __all__ = (
     'GradEstimator',
     'ForwardFD',
-    # 'CentralFD',
+    'CentralFD',
+    'OptFFD', 
+    'OptCFD',
     # 'SinglePointEstimator',
     # 'LinInterpolation',
     # 'CentralLinInterpolation',

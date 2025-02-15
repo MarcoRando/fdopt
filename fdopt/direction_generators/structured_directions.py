@@ -2,12 +2,9 @@ import time
 import torch
 from math import floor, log2, pi, sin, cos, sqrt
 
-#from itertools import combinations
-#from torch._C import dtype, float64
 from torch_dct import dct
 
 from fdopt.direction_generators.generator import DirectionGenerator
-from fdopt.direction_generators.unstructured_directions import SphericalDirections, GaussianDirections
 
 class CoordinateDirections(DirectionGenerator):
     
