@@ -13,7 +13,7 @@ class GaussianDirections(DirectionGenerator):
 class SphericalDirections(GaussianDirections):
     def __call__(self) -> torch.Tensor:
         P = torch.randn(self.d, self.l, dtype=self.dtype, generator=self.generator, device=self.device)
-        P.div_(P.norm(dim = 0))
+        P.div_(P.norm(dim = 0, p=2))
         return P.T
     
     def __str__(self):

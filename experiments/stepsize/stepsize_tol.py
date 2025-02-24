@@ -13,24 +13,24 @@ from synthetic_targets import LeastSquares
 
 
 methods = {
-#    'coordinate' : CoordinateDirections,
-#    'gaussian' : GaussianDirections,
-    'spherical' : SphericalDirections,
+#   'coordinate' : CoordinateDirections,
+#   'gaussian' : GaussianDirections,
     'householder' : Householder,
-#    'butterfly' : ButterflyMatrix,
-#    'butterfly_dct' : ButterflyMatrix,
-#    'qr' : QRDirections,
+    'spherical' : SphericalDirections,
+    'butterfly' : ButterflyMatrix,
+#   'butterfly_dct' : ButterflyMatrix,
+#   'qr' : QRDirections,
 #    'svd' : SVDDirections
 }
 
 
-d = 100
-l = d
+d = 32
+l = d // 2
 device = 'cuda'
 dtype=torch.float64
 
 
-target = LeastSquares(mu=0.01, L=10.0, set_l=True, d=d, dtype=dtype,device=device)
+target = LeastSquares(mu=0.01, L=100.0, set_l=True, d=d, dtype=dtype,device=device)
 
 g = ForwardFD(norm_const=d/l)
 
@@ -39,7 +39,7 @@ fun_name = "LeastSquares"
 dtype = torch.float64
 device = 'cuda'
 seed = 12131419
-reps=5
+reps=1#5
 generator = torch.Generator(device=device).manual_seed(12131415)
 
 
@@ -55,20 +55,25 @@ os.makedirs(out_dir2, exist_ok=True)
 
 best_values = {'spherical' : (None, [], []), 'householder' : (None, [], [])}
 
-gammas = np.logspace(-3, 0, 20)
+f_0 = target(x).item()
+gammas = np.logspace(-4, 0, 50)
 for (i, gamma) in enumerate(gammas):
-
-    f_0 = target(x).item()
+    
     print(f"[{i}] Computing for gamma = {gamma}")
     for (label, matrix_cls) in methods.items():
+        print(f"LABEL {label}")
+        if label not in best_values:
+            best_values[label] = (None, [], [])
         P = matrix_cls(d = d, l = l, dct=True, device=device, dtype=dtype) if label == 'butterfly_dct' else  matrix_cls(d = d, l = l, device=device, dtype=dtype)
-        opt = FDOpt(P = P, g =g, gamma=gamma, h=h, seed=seed)
+        g.nrm_const = d/l if label != 'gaussian' else 1/l
+        opt = FDOpt(P = P, g =g, gamma=gamma, h=h)
         last_vals = []
         opt_times = []
         values = []
         for _ in range(reps):
+            print("F0 = ", f_0)
             it_time = time.time()
-            _, f_values = opt.optimize(f = target, x_0 = x, T = 1000)
+            _, f_values = opt.optimize(f = target, x_0 = x.clone(), T = 1000)
             it_time = time.time() - it_time
             if f_values[-1] > f_0:
                 last_vals.append(f_0)

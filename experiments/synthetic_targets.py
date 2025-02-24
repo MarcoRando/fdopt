@@ -1,19 +1,23 @@
 import torch
+import numpy as np 
 import pycutest
-import numpy as np
 from math import sqrt
 
 class TargetFunction:
     
-    def __init__(self, d, dtype = torch.float64, device = 'cpu', seed = 121314) -> None:
+    def __init__(self, d, dtype = torch.float64, device = 'cpu', sigma_noise = 0.0, seed = 121314) -> None:
         self.d = d
         self.dtype = dtype
         self.device = device
+        self.sigma_noise = sigma_noise
         self.generator = torch.Generator(device=device)
         self.generator.manual_seed(seed)
+
+    def add_noise(self, fx):
+        eps = self.sigma_noise * torch.randn(fx.shape[0], generator=self.generator, device=self.device, dtype=self.dtype)
+        return fx + eps
+
         
-    
-    
     def __call__(self, x):
         pass
         
@@ -33,14 +37,14 @@ class LeastSquares(TargetFunction):
             S = torch.diag(torch.linspace(sqrt(L), sqrt(mu), self.d, dtype=self.dtype, device=self.device))
             self.A = Q @ S @ Q.T
         else:
-            self.A = A
+            self.A = A.T @ A
         self.x_star = torch.randn(1, self.d, generator=self.generator, device=self.device, dtype=self.dtype) 
         self.x0 = torch.ones((1, self.d), dtype=self.dtype, device=self.device)
         self.y = self.A @ self.x_star.T
         
     def __call__(self, x):
         fx = torch.linalg.norm(self.A @ x.T - self.y, dim=0).square().mul(0.5)
-        return fx    
+        return self.add_noise(fx)
 
     def grad(self, x):
         return self.A.T @ (self.A @ x.T - self.y)
@@ -48,7 +52,7 @@ class LeastSquares(TargetFunction):
 class LS1(LeastSquares):
     
     def __init__(self, d, *args, **kwargs):
-        super().__init__(mu = 0.1, L = 1, d=d, set_l=True, *args, **kwargs)
+        super().__init__(mu = 1.0, L = 10.0, d=d, set_l=True, *args, **kwargs)
     
 class LS2(LeastSquares):
     
@@ -70,13 +74,13 @@ class PycutestTarget(TargetFunction):
         self.x0 = torch.from_numpy(self.fun.x0).to(device=device, dtype=dtype).reshape(1, -1)
         
     def __call__(self, x):
-        res = np.zeros((x.shape[0],))
-        for i in range(x.shape[0]):
-            print(self.fun.obj(x[i, :].cpu().numpy().flatten(), gradient = False))
-            res[i] = self.fun.obj(x[i, :].cpu().numpy().flatten(), gradient = False)
-        print("NP FX: ", res, torch.from_numpy(res).to(dtype=self.dtype, device=self.device))
-        return torch.from_numpy(res).to(dtype=self.dtype, device=self.device)
+#        res = np.zeros((x.shape[0], ))
+#        for i in range(x.shape[0]):
+#            res[i] = self.fun.obj(x[i, :].cpu().numpy().flatten(), gradient = False)
+        res = np.vectorize(self.fun.obj, x.cpu().numpy())
+        fx = torch.from_numpy(res).to(dtype=self.dtype, device=self.device)
+        return self.add_noise(fx)
 
     def grad(self, x):
         _, g = self.fun.obj(x.cpu().numpy().flatten(), gradient = True)
-        return torch.from_numpy(g).to(device=self.device,dtype=self.dtype).reshape(1, -1)
+        return torch.from_numpy(g).to(device=self.device,dtype=self.dtype)

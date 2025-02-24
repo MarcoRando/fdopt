@@ -1,13 +1,9 @@
-import torch
 import time
 import numpy as np
 from fdopt.grad_estimators import ForwardFD, CentralFD, OptFFD, OptCFD
 from fdopt.direction_generators import CoordinateDirections, GaussianDirections, SphericalDirections, Householder, ButterflyMatrix, QRDirections, SVDDirections
 
 from synthetic_targets import *
-
-def relative_error(g, grad):
-    return torch.linalg.norm(g.flatten() - grad.flatten(), ord=2) / torch.linalg.norm(grad.flatten(), ord=2)
 
 
 def get_grad_estimator(grad_estimator : str, norm_const : float = 1.0):
@@ -28,6 +24,8 @@ def get_target_function(target_name, **params):
         return LS2(**params)
     elif target_name == 'ls3':
         return LS3(**params)
+    elif target_name == 'least_squares':
+        return LeastSquares(**params)
     return PycutestTarget(problem_name=target_name, **params)
     raise Exception(f"Unknown target name: {target_name}")
 
@@ -48,18 +46,25 @@ def get_direction_generator(direction_generator: str):
         return direction_mapping[direction_generator]
     raise ValueError(f"Invalid direction generator: {direction_generator}")
 
-def compute_error_time(fun, x, fx, g, P, h, reps = 10):
+def relative_error(g, grad):
+    return torch.linalg.norm(g.flatten() - grad.flatten(), ord=2) / torch.linalg.norm(grad.flatten(), ord=2)
+
+
+def compute_error_time(fun, x, g, P, h, reps = 10, use_smoothing = False, grad_h = None):
     errors, times = [], []
-    grad = fun.grad(x).flatten()
-    _ = g(fun, x, f_x = fx, h = h, P = P())
+    if use_smoothing:
+#        g_smt = CentralFD(norm_const=P.d/1000)
+#        G = SphericalDirections(P.d, 1000, dtype=P.dtype, device=P.device, seed=131415)
+        grad = grad_h #g_smt(fun, x, fun(x), G(), h=h)
+    else:
+        grad = fun.grad(x).flatten()
+    _ = g(fun, x, h = h, P = P())
     for _ in range(reps):        
         it_time = time.time()
-        g_x = g(fun, x, f_x = fx, h = h, P = P())
+        g_x = g(fun, x,  h = h, P = P())
         it_time = time.time() - it_time
-        print("G", g_x)
-        print("GRAD:", grad)
-        exit()
         rel_err = relative_error(g_x, grad).item()
+
         errors.append(rel_err)
         times.append(it_time)
     return np.mean(errors), np.std(errors), np.mean(times), np.std(times)

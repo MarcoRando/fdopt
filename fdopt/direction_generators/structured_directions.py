@@ -8,14 +8,14 @@ from fdopt.direction_generators.generator import DirectionGenerator
 
 class CoordinateDirections(DirectionGenerator):
     
-    def __init__(self, d: int, l: int = 1, dtype: torch.dtype = torch.float64, store_identity : bool = False, device: str = 'cpu', seed: int = 121212) -> None:
+    def __init__(self, d: int, l: int = 1, dtype: torch.dtype = torch.float64, store_identity : bool = True, device: str = 'cpu', seed: int = 121212) -> None:
         super().__init__(d, l, dtype, device, seed)
         self.store_identity = store_identity
         if store_identity:# or d == l:
             self.I = torch.eye(self.d, dtype=self.dtype, device=self.device)
     
     def __call__(self) -> torch.Tensor:
-        if self.store_identity:# or self.l == self.d:
+        if self.store_identity and self.l == self.d:
             return self.I
         elif self.store_identity and self.l < self.d:
             inds = torch.multinomial(torch.ones(self.d, dtype=self.dtype, device=self.device), num_samples=self.l, replacement=False, generator=self.generator) 
@@ -53,7 +53,7 @@ class Householder(DirectionGenerator):
             
     def __call__(self) -> torch.Tensor:
         v =  torch.randn(self.d, generator=self.generator, dtype=self.dtype,  device = self.device, )
-        v /= v.norm(p=2)
+        v /= v.norm(p=2, dim=0)
         return (self.I_l - 2 * v.outer(v[:self.l])).T
 
     def __str__(self):

@@ -13,44 +13,40 @@ class GradEstimator:
     
     def __init__(self, norm_const : float = 1.0):
         self.nrm_const = norm_const
+                    
+    def __call__(self, f : Callable[[torch.Tensor], torch.Tensor], x : torch.Tensor, P : torch.Tensor, h : float):
+        raise NotImplementedError("Method implemented in subclasses")
                 
-    #f, x_k, f_k, P_k, h_k
-    def __call__(self, f : Callable[[torch.Tensor], torch.Tensor], x : torch.Tensor, f_x : float, P : torch.Tensor, h : float):
-        raise NotImplementedError("Function implemented in subclasses")
-            
-    def reset(self):
-        pass
-    
 
 class ForwardFD(GradEstimator):
-    
-    def __call__(self, f : Callable[[torch.Tensor], torch.Tensor], x : torch.Tensor, f_x : float, P : torch.Tensor, h : float):
+        
+    def __call__(self, f : Callable[[torch.Tensor], torch.Tensor], x : torch.Tensor,  P : torch.Tensor, h : float):
         # g = torch.zeros_like(x)
         # for i in range(P.shape[0]):
         #     g+= ((f(x + h * P[i]) - f_x )/h) * P[i]
         # g *= self.nrm_const
         # return g
-        return ((f(x + h * P) - f_x).div(h) * P.T).sum(dim=1, keepdims=True).mul(self.nrm_const).T
+        return ((f(x + h * P) - f(x.repeat_interleave(P.shape[0], dim=0))).div(h) * P.T).sum(dim=1, keepdims=True).mul(self.nrm_const).T
         
 
 class CentralFD(GradEstimator):
         
-    def __call__(self, f : Callable[[torch.Tensor], torch.Tensor], x : torch.Tensor, f_x : float, P : torch.Tensor, h : float):
+    def __call__(self, f : Callable[[torch.Tensor], torch.Tensor], x : torch.Tensor,  P : torch.Tensor, h : float):
         return ((f(x + h * P) - f(x - h * P)).div(2*h) * P.T).sum(dim=1, keepdims=True).mul(self.nrm_const).T
         
 class OptFFD(GradEstimator):
     
-    def __call__(self, f : Callable[[torch.Tensor], torch.Tensor], x : torch.Tensor, f_x : float, P : torch.Tensor, h : float):
-        alpha = (f(x + h * P) - f_x)/h
-        return torch.linalg.lstsq(P, alpha)[0].reshape(1, -1)
+    def __call__(self, f : Callable[[torch.Tensor], torch.Tensor], x : torch.Tensor,  P : torch.Tensor, h : float):
+        alpha = (f(x + h * P) - f(x.repeat_interleave(P.shape[0], dim=0)))/h
+        return torch.linalg.lstsq((P.shape[0] / P.shape[1]) * P, alpha)[0].reshape(1, -1)
 
 class OptCFD(GradEstimator):
     
-    def __call__(self, f : Callable[[torch.Tensor], torch.Tensor], x : torch.Tensor, f_x : float, P : torch.Tensor, h : float):
-        f_plus = f(x + h * P).reshape(-1)
-        f_min = f(x - h * P).reshape(-1)
-        g_plus = torch.linalg.solve(h * P, f_plus)
-        g_min = torch.linalg.solve(h * P, f_min)
+    def __call__(self, f : Callable[[torch.Tensor], torch.Tensor], x : torch.Tensor,  P : torch.Tensor, h : float):
+        f_plus = f(x + h * P).reshape(-1) /h
+        f_min = f(x - h * P).reshape(-1)/h
+        g_plus = torch.linalg.lstsq((P.shape[0] / P.shape[1]) *P,  f_plus)[0].reshape(1, -1)
+        g_min = torch.linalg.lstsq((P.shape[0] / P.shape[1]) *P,  f_min)[0].reshape(1, -1)
         return (g_plus - g_min) / 2
 
 # class CentralLinInterpolation(LinInterpolation):
