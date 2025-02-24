@@ -68,16 +68,15 @@ class LS3(LeastSquares):
 
 class PycutestTarget(TargetFunction):
     
-    def __init__(self, d, problem_name, dtype = torch.float64, device = 'cpu', seed = 121314) -> None:
-        self.fun = pycutest.import_problem(problem_name)        
+    def __init__(self, pycutest_problem, dtype = torch.float64, device = 'cpu', seed = 121314) -> None:
+        self.fun = pycutest_problem# pycutest.import_problem(problem_name)        
         super().__init__(d = self.fun.n, dtype = dtype, device= device, seed=seed)
         self.x0 = torch.from_numpy(self.fun.x0).to(device=device, dtype=dtype).reshape(1, -1)
         
     def __call__(self, x):
-#        res = np.zeros((x.shape[0], ))
-#        for i in range(x.shape[0]):
-#            res[i] = self.fun.obj(x[i, :].cpu().numpy().flatten(), gradient = False)
-        res = np.vectorize(self.fun.obj, x.cpu().numpy())
+        print(x.cpu().numpy())
+        res = np.apply_along_axis(self.fun.obj, axis=1, arr=x.cpu().numpy())
+
         fx = torch.from_numpy(res).to(dtype=self.dtype, device=self.device)
         return self.add_noise(fx)
 
