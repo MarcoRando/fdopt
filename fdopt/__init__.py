@@ -1,7 +1,6 @@
 
-from fdopt.optimizers.fd_opt import FDOpt, AccFDOpt
+from fdopt.optimizers.fd_opt import FDOpt
 
 __all__ = (
     "FDOpt",
-    'AccFDOpt',
 )

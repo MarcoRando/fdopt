@@ -1,6 +1,6 @@
-from fdopt.optimizers.fd_opt import FDOpt, AccFDOpt
+from fdopt.optimizers.fd_opt import FDOpt, LSFDOpt
 
 __all__ = (
     'FDOpt',
-    'AccFDOpt'
+    'LSFDOpt',
 )

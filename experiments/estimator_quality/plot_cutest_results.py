@@ -1,0 +1,59 @@
+import sys
+import numpy as np 
+import glob
+import os
+
+import pandas as pd 
+import matplotlib.pyplot as plt 
+import matplotlib
+
+matplotlib.rcParams['pdf.fonttype'] = 42
+matplotlib.rcParams['ps.fonttype'] = 42
+direction_type = ['spherical', 'gaussian', 'rademacher', 'coordinate', 'householder', 'butterfly', 'qr']
+
+colors = ['red', 'orange', 'green', 'blue', 'purple', 'brown', 'gray']
+l_labels = ['1', 'd/3', 'd/2', '4/5 d', '9/10 d', 'd']
+
+base_path = sys.argv[1]
+
+results = {dir_type : [[] for _ in range(len(l_labels))] for dir_type in direction_type}
+
+directories = os.listdir(base_path)
+
+print("[--] Num files: {}".format(len(directories)))
+
+for filename in directories:
+    if not filename.endswith(".csv"):
+        continue
+    data = pd.read_csv(base_path +"/" + filename)
+    d = data['dimension'].values[0]
+    for dir_type in direction_type:
+        num_directions = [1, d//3, d//2, round(d * (4/5)), round(d * (9/ 10)), d]
+        for (i, l) in enumerate(num_directions):
+            data_l = data[data['l'] == l]
+            results[dir_type][i].append(np.mean(data_l[data_l['directions'] == dir_type]['err'].values))
+#            print(data_l.head())
+
+
+fig, axes = plt.subplots(2, 3, figsize=(16, 7))
+
+axes = axes.flatten()
+
+for i in range(len(l_labels)):
+    if i < len(l_labels) - 1:
+        taus = np.logspace(-1, 1, 5000)
+    else:
+        taus = np.logspace(-7, 1, 5000)
+
+    axes[i].set_title(f"$\\ell = {l_labels[i]}$", fontsize=16)
+    for (j, dir_type) in enumerate(direction_type):
+        result = np.array(results[dir_type][i]) 
+        y = [np.sum(result < tau) / result.shape[0] for tau in taus]
+        axes[i].plot(taus, y ,'-', lw=3, c=colors[j], label=dir_type, rasterized=True)
+    axes[i].set_xscale("log")
+    axes[i].set_xlabel("$\\tau$", fontsize=14)
+axes[0].legend(loc='upper left', fontsize=12)
+fig.supylabel("Performance profile", fontsize=14)
+fig.tight_layout()
+fig.savefig("./cutest_benchmark_perfmetric.pdf", bbox_inches='tight')
+plt.close(fig)

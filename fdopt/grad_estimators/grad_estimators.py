@@ -20,14 +20,8 @@ class GradEstimator:
 
 class ForwardFD(GradEstimator):
         
-    def __call__(self, f : Callable[[torch.Tensor], torch.Tensor], x : torch.Tensor,  P : torch.Tensor, h : float):
-        # g = torch.zeros_like(x)
-        # for i in range(P.shape[0]):
-        #     g+= ((f(x + h * P[i]) - f_x )/h) * P[i]
-        # g *= self.nrm_const
-        # return g
-        return ((f(x + h * P) - f(x.repeat_interleave(P.shape[0], dim=0))).div(h) * P.T).sum(dim=1, keepdims=True).mul(self.nrm_const).T
-        
+    def __call__(self, f : Callable[[torch.Tensor], torch.Tensor], x : torch.Tensor,  P : torch.Tensor, h : float):        
+        return ((f(x + h * P) - f(x.repeat_interleave(P.shape[0], dim=0)) ).div(h).reshape(P.shape[0], -1) * P).sum(dim=0, keepdims=True).mul(self.nrm_const)        
 
 class CentralFD(GradEstimator):
         
@@ -38,16 +32,18 @@ class OptFFD(GradEstimator):
     
     def __call__(self, f : Callable[[torch.Tensor], torch.Tensor], x : torch.Tensor,  P : torch.Tensor, h : float):
         alpha = (f(x + h * P) - f(x.repeat_interleave(P.shape[0], dim=0)))/h
-        return torch.linalg.lstsq((P.shape[0] / P.shape[1]) * P, alpha)[0].reshape(1, -1)
+        return torch.linalg.lstsq( P, alpha)[0].reshape(1, -1)
 
 class OptCFD(GradEstimator):
     
     def __call__(self, f : Callable[[torch.Tensor], torch.Tensor], x : torch.Tensor,  P : torch.Tensor, h : float):
-        f_plus = f(x + h * P).reshape(-1) /h
-        f_min = f(x - h * P).reshape(-1)/h
-        g_plus = torch.linalg.lstsq((P.shape[0] / P.shape[1]) *P,  f_plus)[0].reshape(1, -1)
-        g_min = torch.linalg.lstsq((P.shape[0] / P.shape[1]) *P,  f_min)[0].reshape(1, -1)
-        return (g_plus - g_min) / 2
+#        f_plus = f(x + h * P).reshape(-1) /h
+#        f_min = f(x - h * P).reshape(-1)/h
+        f_plus = (f(x + h * P).reshape(-1) -  f(x - h * P).reshape(-1))/(2 * h)
+        return torch.linalg.lstsq(P, f_plus)[0].reshape(1, -1)
+#        g_plus = torch.linalg.lstsq(P, f_plus)[0].reshape(1, -1)
+#        g_min = torch.linalg.lstsq(P,  f_min)[0].reshape(1, -1)
+#        return (g_plus - g_min) / 2
 
 # class CentralLinInterpolation(LinInterpolation):
         

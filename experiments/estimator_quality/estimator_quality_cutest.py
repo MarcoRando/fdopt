@@ -1,6 +1,6 @@
 import os
 import sys
-import argparse
+import argparse as ap
 import torch
 import sys
 import time
@@ -8,8 +8,8 @@ import pandas as pd
 import numpy as np
 from math import sqrt
 import pycutest as pc 
-from fdopt.grad_estimators import ForwardFD, CentralFD
-from fdopt.direction_generators import Householder, ButterflyMatrix, CoordinateDirections, GaussianDirections, SphericalDirections, QRDirections, SVDDirections
+from fdopt.grad_estimators import ForwardFD #, CentralFD
+from fdopt.direction_generators import *# Householder, ButterflyMatrix, CoordinateDirections, GaussianDirections, SphericalDirections, QRDirections, SVDDirections
 
 
 sys.path.append("../")
@@ -18,86 +18,86 @@ from synthetic_targets import LeastSquares, PycutestTarget
 from utils import compute_error_time, get_grad_estimator, get_target_function
 
 methods = {
-    'coordinate' : CoordinateDirections,
     'spherical' : SphericalDirections,
     'gaussian' : GaussianDirections,
+    'rademacher' : RademacherDirections,
+    'coordinate' : CoordinateDirections,
     'householder' : Householder,
     'butterfly' : ButterflyMatrix,
-    'butterfly_dct' : ButterflyMatrix,
     'qr' : QRDirections,
-#    'svd' : SVDDirections
 }
 
-
-grad_estimator = sys.argv[1]
-base_dir = sys.argv[2]
-
-d = int(sys.argv[3])
-
-sigma_noise = float(sys.argv[4])
-
-reps = int(sys.argv[5])
-
-seed = 131415
-
-out_dir = f"{base_dir}/estimator_quality/noise_{sigma_noise}/{grad_estimator}"#.format(mu, L)
-
-os.makedirs(out_dir, exist_ok=True)
-
-
-def get_pycutest_target(problem_name):
-    name, d, _ = problem_name.split(',')
-    
-    d = int(d)
-
-    print("[--] problem = {}\td = {}".format(name, d))
-    problem = pc.import_problem(name, sifParams={'N' : d})
-    return PycutestTarget(problem, dtype=dtype, device=device, seed = seed)
-    
 dtype = torch.float64
 device = 'cuda'
 seed = 12131419
 
-problems = [
-    'ALJAZZAF,1000,3',
-]
 
-#h = 5e-1
-
-
-for problem in problems:
-    fun = get_pycutest_target(problem)
+def get_pycutest_target(problem_name):
     
-    X = torch.ones((1, fun.d))
-     
-    eval_time = time.time()
-    print("[--] f(x0) = {}".format(fun(X)))
-    eval_time = time.time() - eval_time
-    print("[--] grad = {}".format(fun.grad(X[0])))
-    print(eval_time)
+    splitted = problem_name.split(',')
     
-# fun = PycutestTarget(d =)
+    name = splitted[0]
+    d = int(splitted[1])
+    n = int(splitted[2])
+    
+    x = np.array([float(elem) for elem in splitted[3:]])
+    
+    problem = pc.import_problem(name.split("_")[0], sifParams={'N' : d})
+    return PycutestTarget(problem, dtype=dtype, device=device, seed = seed, x0=x), d
 
 
-# d = fun.d # NOTE THAT IT IS DIFFERENT FROM PASSED PARAMETER CUTEST functions!
-# x = fun.x0
-# g = get_grad_estimator(grad_estimator=grad_estimator, norm_const=1.0)
+def run_experiment(args):
+    grad_estimator = args.grad_estimator
+    base_dir = args.out_dir
 
+    sigma_noise = args.sigma
 
-# num_directions = list(range(1, d, 2)) + [d]
+    h = args.h
+    reps = args.reps 
 
-# for h in [1.0, 1e-1, 1e-2, 1e-3, 1e-5, 1e-7]:
-#     data = []
-#     for (i, l) in enumerate(num_directions):
+    out_dir = f"{base_dir}/grad_approx_error/noise_{sigma_noise}/{grad_estimator}/cutest"#.format(mu, L)
+
+    os.makedirs(out_dir, exist_ok=True)
+
+    with open("../cutest_problem_names.log", 'r') as f:
+        problems = f.readlines()
+
+    for problem in problems:
+        g = get_grad_estimator(grad_estimator=grad_estimator, norm_const=1.0)
+        fun, d_idx = get_pycutest_target(problem)
         
-#         fx = fun(x)
-#         print(f"[++] Computing for l = {l} and h = {h}")
-#         for (label, matrix_cls) in methods.items():
-#             P = matrix_cls(d = d, l = l, dct=True, dtype=dtype, device=device) if label == 'butterfly_dct' else  matrix_cls(d = d, l = l, dtype=dtype, device=device)
-#             g.nrm_const = 1/l if label=='gaussian' else d/l
-#             mu_err, std_err, mu_time, std_time = compute_error_time(fun, x.clone(), g, P, h, reps = reps)
-#             data.append([label, l, mu_err, std_err, mu_time, std_time]) 
-#             print(f"\t[--] Completed for {label}")
+        x = fun.x0 
+        d = x.shape[1]
+        num_directions = [1, d//3, d//2, round((4/5) * d), round((9/10) * d),  d] 
+        data = []
+        for (j, l) in enumerate(num_directions):
+            prob_name = problem.split(",")[0]
+            print(f"[++] Estimating gradient of {prob_name} [{d_idx}]  using {l} of {d} directions")
+            for (label, matrix_cls) in methods.items():
+                P = matrix_cls(d = d, l = l, dtype=dtype, device=device)
+                g.nrm_const = 1/l if label=='gaussian' or label =='rademacher' else d/l
+                
+                errors, times = compute_error_time(fun, x.clone(), g, P, h, reps = reps)
+                for i in range(len(errors)):
+                    data.append([problem.strip().split(',')[0], d, label, j, l, errors[i], times[i], i]) 
 
-#     dframe = pd.DataFrame(data, columns=['directions', 'l', 'mu_err', 'std_err', 'mu_time', 'std_time'])
-#     dframe.to_csv(f"{out_dir}/LeastSquare_{L}_{mu}_{d}_{h}.csv", index=False)
+                print(f"\t[--] Completed for {label}")
+        dframe = pd.DataFrame(data, columns=['function', 'dimension', 'directions', 'l_idx', 'l', 'err', 'time', 'rep'])
+        dframe.to_csv(f"{out_dir}/{problem.strip().split(',')[0]}_{d_idx}_{d}_{h}.csv", index=False)
+        fun.close()
+
+
+if __name__ == '__main__':
+    parser = ap.ArgumentParser(description="Compute gradient approximation error for CUTEST functions.", formatter_class=ap.ArgumentDefaultsHelpFormatter)
+
+    parser.add_argument('grad_estimator', type=str, default='ffd')
+
+
+
+    parser.add_argument('--out_dir', type=str, default='./')
+    parser.add_argument('--reps', type=int, default=50)
+    parser.add_argument('--sigma', type=float, default=0.0)
+
+    parser.add_argument('--h', type=float, default=1e-7)
+    args = parser.parse_args()
+    run_experiment(args)

@@ -31,7 +31,10 @@ class CoordinateDirections(DirectionGenerator):
 class QRDirections(DirectionGenerator):
     def __call__(self) -> torch.Tensor:
         P = torch.randn(self.d, self.l, generator=self.generator, dtype=self.dtype, device = self.device)
+#        Q, R = torch.linalg.qr(P)
         return torch.linalg.qr(P)[0].T
+#        D = torch.diagonal(R, offset=0)
+#        return Q.matmul((D / D.abs_()).diag().matmul(Q.T)).T
 
     def __str__(self):
         return f"QR_{self.d}_{self.l}"
@@ -47,14 +50,23 @@ class SVDDirections(DirectionGenerator):
     
 class Householder(DirectionGenerator):
     
-    def __init__(self, **kwargs) -> None:
+    def __init__(self, num_reflectors = 1, **kwargs) -> None:
         super().__init__(**kwargs)
-        self.I_l = torch.eye(self.d, self.l, device=self.device, dtype=self.dtype)
+        self.I = torch.eye(self.d, device=self.device, dtype=self.dtype)
+        self.num_reflectors = num_reflectors
             
     def __call__(self) -> torch.Tensor:
-        v =  torch.randn(self.d, generator=self.generator, dtype=self.dtype,  device = self.device, )
-        v /= v.norm(p=2, dim=0)
-        return (self.I_l - 2 * v.outer(v[:self.l])).T
+        v =  torch.randn(self.d, generator=self.generator, dtype=self.dtype,  device = self.device)
+        v /=torch.linalg.norm(v, ord=2)
+        H = self.I - 2 * v.outer(v)
+        for i in range(1, self.num_reflectors):
+            v =  torch.randn(self.d, generator=self.generator, dtype=self.dtype,  device = self.device)
+            v /=torch.linalg.norm(v, ord=2)
+            H = (self.I - 2 * v.outer(v)) @ H
+            
+#        sx = v[:self.l].sign() #if self.take_all_sign  else v[0].sign()
+      #  print(H[:, :self.l].T)
+        return  H[:, :self.l].T #(self.I_l - 2 * v.outer(v[:self.l])).T
 
     def __str__(self):
         return f"Householder_{self.d}_{self.l}"
@@ -78,12 +90,18 @@ class ButterflyMatrix(DirectionGenerator):
         if self.d == B.shape[0]:
             return B[:, :self.l].T
         d_eff = B.shape[1]  
+        d_0 = B.shape[0]
+        to_add = self.d - B.shape[0]
         B = torch.vstack([B, torch.zeros(self.d - B.shape[0], B.shape[1], dtype=self.dtype, device=self.device)])
-        if B.shape[1] < self.l:
-            B = torch.hstack([B, torch.zeros(B.shape[0], self.l - B.shape[1], dtype=self.dtype, device=self.device )])
-            B[range(d_eff, self.l), range(d_eff, self.l)] = 1.0
-
-        return dct(B.T, norm='ortho') if self.dct else B.T
+        B = torch.hstack([B, torch.zeros(B.shape[0], to_add, dtype=self.dtype, device=self.device )])
+#        if B.shape[1] < self.l:
+#            B = torch.hstack([B, torch.zeros(B.shape[0], self.l - B.shape[1], dtype=self.dtype, device=self.device )])
+        B[range(d_0, d_0 + to_add), range(d_eff, d_eff + to_add)] = 1.0
+        if self.dct:
+            return dct(B[:, :self.l].T, norm='ortho')
+#        print(B)
+        B = B[:, torch.randperm(B.shape[1], generator=self.generator, device=self.device)[:self.l]]
+        return B.T
       
     def __str__(self):
         if self.dct:
