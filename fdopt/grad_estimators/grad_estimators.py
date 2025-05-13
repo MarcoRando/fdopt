@@ -1,9 +1,5 @@
 import torch
 
-from torch_dct import dct
-
-from numba import njit, prange
-
 from typing import Union, Callable, Dict
 
 from fdopt.direction_generators.generator import DirectionGenerator

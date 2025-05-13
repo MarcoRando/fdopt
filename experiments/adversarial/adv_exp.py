@@ -98,14 +98,14 @@ test_y = extract_labels('./data/MNIST/raw/t10k-labels-idx1-ubyte.gz', 10000)
 # theta = 0.33#9
 # T = 30000
 
-lam = 100.0
-theta = 0.5
+lam = 50.0
+theta = 0.9
 T = 30000
 
 
 # 
 label, matrix_cls = method, methods[method]
-for l in [d, round((4/5) * d), d//2, d//3]:# [2, d//3, d//2, round((4/5) * d),  d]:
+for l in [d, round((4/5) * d), d//2, d//3, 2]:# [2, d//3, d//2, round((4/5) * d),  d]:
 
     results = []#{label : [] for label in methods.keys()}
 
