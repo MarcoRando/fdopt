@@ -14,8 +14,10 @@ matrices = [
     ("gaussian", GaussianDirections),
     ("rademacher", RademacherDirections),
     ("householder", Householder),
+    ("permuted_householder", PermutedHouseholder),
     ("coordinate", CoordinateDirections),
     ("butterfly", ButterflyMatrix),
+    ("subspace_qr", SubspaceQR),
     ("qr", QRDirections),
 ]
 
@@ -35,10 +37,10 @@ device = 'cuda'
 seed = 12341567
 dtype = torch.float64
 
-dimensions = [50, 100, 500, 1000, 5000, 10000]
+dimensions = [500, 1000, 5000]#, 10000]
 
 reps = sys.argv[1] 
-out_dir = sys.argv[2]
+out_dir = sys.argv[2] +"/sampling_cost"
 os.makedirs(out_dir, exist_ok=True)
 
 
@@ -46,7 +48,7 @@ times_cuda = []
 
 iterator = tqdm.tqdm(enumerate(dimensions))
 for (i, d) in iterator:
-    for l in [1, d//3, d//2, round((4/5) * d),  d]:
+    for l in [2, d//3, d//2, round((4/5) * d),  d]:
         for label, matrix_class in matrices:
             mgen = matrix_class(d = d, l = l, device=device, dtype=dtype, seed=seed)
             mu, sigma = compute_cost(mgen)

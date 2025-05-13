@@ -41,6 +41,8 @@ def get_target_function(target_name):
         return QuingFunction
     elif target_name == 'stib':
         return StyblinskiTangFunction
+    elif target_name == 'dixon_price':
+        return ZakharovFunction
     raise Exception(f"Unknown target name: {target_name}")
 
 direction_mapping = {

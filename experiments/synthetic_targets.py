@@ -73,6 +73,45 @@ class LeastSquares(TargetFunction):
     def __str__(self):
         return f"{self.name}_{self.L}_{self.mu}_{self.d}"
     
+class SparseSum(TargetFunction):
+    
+    def __init__(self, d, s, dtype = torch.float64, device = 'cpu', sigma_noise = 0.0, seed = 121314) -> None:
+        super().__init__(name=f"SparseSum_{s}", d = d, dtype = dtype, device= device, sigma_noise=sigma_noise, seed=seed)
+        self.s = s
+        self.inds = torch.randperm(self.d, device=self.device)[:self.s]
+        self.x0 = torch.full((1, self.d), 1.0, dtype=self.dtype, device=self.device)
+        self.y = torch.randn(self.s, dtype=self.dtype, device=self.device)
+        self.bounds = torch.tensor([[-1, 1] for _ in range(d)], device=device, dtype=dtype)
+        self.min_f = 0.0
+        
+    def __call__(self, x):
+        return self.add_noise(0.5 * torch.sum((x[:, self.inds] - self.y) **2, dim =1))
+
+    def grad(self, x):
+        grad = torch.zeros_like(x)
+        grad[0, self.inds] = (x[0, self.inds] - self.y)
+        return grad
+
+class Quadratic(TargetFunction):
+
+    def __init__(self, d, dtype=torch.float64, device='cpu', seed=121314):
+        super().__init__("Quadratic", d, dtype, device, seed)
+        self.x0 = torch.ones((1, self.d), dtype=self.dtype, device=self.device)
+        self.b = torch.randn(self.d, dtype=self.dtype, device=self.device)
+        self.bounds = torch.tensor([[-1, 1] for _ in range(d)], device=device, dtype=dtype)
+        self.min_f = 0.0
+        self.A = torch.logspace(-3, 3, self.d, dtype=self.dtype, device=self.device)
+
+    def __call__(self, x):
+        Ax = self.A * x
+        quadratic = 0.5 * (x * Ax).sum(dim=-1) 
+        linear_term = (self.b * x).sum(dim=-1)
+        return self.add_noise(quadratic - linear_term)
+
+    def grad(self, x):
+        return self.A * x - self.b 
+
+
 class RegularizedLogistic(TargetFunction):
     
     def __init__(self, d, n, lam = 1e-5, dtype=torch.float64, device='cpu', sigma_noise=0, seed=121314):

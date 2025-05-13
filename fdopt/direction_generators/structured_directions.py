@@ -30,11 +30,8 @@ class CoordinateDirections(DirectionGenerator):
 
 class QRDirections(DirectionGenerator):
     def __call__(self) -> torch.Tensor:
-        P = torch.randn(self.d, self.l, generator=self.generator, dtype=self.dtype, device = self.device)
-#        Q, R = torch.linalg.qr(P)
-        return torch.linalg.qr(P)[0].T
-#        D = torch.diagonal(R, offset=0)
-#        return Q.matmul((D / D.abs_()).diag().matmul(Q.T)).T
+        P = torch.randn(self.d, self.l, generator=self.generator, dtype=self.dtype, device = self.device, requires_grad=False)
+        return torch.linalg.householder_product(*torch.geqrf(P)).T
 
     def __str__(self):
         return f"QR_{self.d}_{self.l}"
@@ -52,25 +49,46 @@ class Householder(DirectionGenerator):
     
     def __init__(self, num_reflectors = 1, **kwargs) -> None:
         super().__init__(**kwargs)
-        self.I = torch.eye(self.d, device=self.device, dtype=self.dtype)
+        self.I = torch.eye(self.d, self.l, device=self.device, dtype=self.dtype)
         self.num_reflectors = num_reflectors
             
     def __call__(self) -> torch.Tensor:
-        v =  torch.randn(self.d, generator=self.generator, dtype=self.dtype,  device = self.device)
+        v = torch.randn(self.d, generator=self.generator, dtype=self.dtype,  device = self.device)
         v /=torch.linalg.norm(v, ord=2)
-        H = self.I - 2 * v.outer(v)
-        for i in range(1, self.num_reflectors):
-            v =  torch.randn(self.d, generator=self.generator, dtype=self.dtype,  device = self.device)
-            v /=torch.linalg.norm(v, ord=2)
-            H = (self.I - 2 * v.outer(v)) @ H
+#        print(v)
+        return (self.I - 2 * v.outer(v[:self.l])).T
+#         for i in range(1, self.num_reflectors):
+#             v =  torch.randn(self.d, generator=self.generator, dtype=self.dtype,  device = self.device)
+#             v /=torch.linalg.norm(v, ord=2)
+#             H = (self.I - 2 * v.outer(v)) @ H
             
-#        sx = v[:self.l].sign() #if self.take_all_sign  else v[0].sign()
-      #  print(H[:, :self.l].T)
-        return  H[:, :self.l].T #(self.I_l - 2 * v.outer(v[:self.l])).T
+# #        sx = v[:self.l].sign() #if self.take_all_sign  else v[0].sign()
+#       #  print(H[:, :self.l].T)
+#         return  H[:, :self.l].T #(self.I_l - 2 * v.outer(v[:self.l])).T
 
     def __str__(self):
         return f"Householder_{self.d}_{self.l}"
-        
+
+
+class PermutedHouseholder(DirectionGenerator):
+
+    def __init__(self, **kwargs) -> None:
+        super().__init__(**kwargs)
+        self.sampl = torch.ones((self.d,), device=self.device, dtype=self.dtype)
+
+    def __call__(self) -> torch.Tensor:
+        I = torch.zeros(self.d, self.l, device=self.device, dtype=self.dtype)
+        inds = self.sampl.multinomial(self.l, replacement=False, generator=self.generator)
+        I[inds, range(self.l)] = 1.0
+        v =  torch.randn(self.d, generator=self.generator, dtype=self.dtype,  device = self.device)
+        v /=torch.linalg.norm(v, ord=2)
+        H = I - 2 * v.outer(v[inds])
+        return H.T
+
+    def __str__(self):
+        return f"PermutedHouseholder_{self.d}_{self.l}"
+
+
 class ButterflyMatrix(DirectionGenerator):
     
     def __init__(self, dct : bool = False, *args, **kwargs) -> None:
@@ -107,3 +125,36 @@ class ButterflyMatrix(DirectionGenerator):
         if self.dct:
             return f"ButterflyDCT_{self.d}_{self.l}"            
         return f"Butterfly_{self.d}_{self.l}"
+
+class HadamardMatrix(DirectionGenerator):
+
+    def __call__(self) -> torch.Tensor:
+        B = torch.ones(1, 1, dtype=self.dtype, device=self.device)
+        num_iters = floor(log2(self.d))
+        for i in range(num_iters):
+            B1 = torch.vstack([ B , B])
+            B2 = torch.vstack([B, -B])
+            B = torch.hstack((B1, B2))
+        B = (1 / sqrt(B.shape[0])) *  B[:, :self.l]
+        if self.d == B.shape[0]:
+            return B[:, :self.l].T
+        d_eff = B.shape[1]  
+        d_0 = B.shape[0]
+        to_add = self.d - B.shape[0]
+        B = torch.vstack([B, torch.zeros(self.d - B.shape[0], B.shape[1], dtype=self.dtype, device=self.device)])
+        B = torch.hstack([B, torch.zeros(B.shape[0], to_add, dtype=self.dtype, device=self.device )])
+#        if B.shape[1] < self.l:
+#            B = torch.hstack([B, torch.zeros(B.shape[0], self.l - B.shape[1], dtype=self.dtype, device=self.device )])
+        B[range(d_0, d_0 + to_add), range(d_eff, d_eff + to_add)] = 1.0
+        B = B[:, torch.randperm(B.shape[1], generator=self.generator, device=self.device)[:self.l]]
+        return B.T
+
+    def __str__(self):
+        return f"Hadamard_{self.d}_{self.l}"
+
+class ButterflyMatrixDCT(ButterflyMatrix):
+    
+    def __init__(self,  *args, **kwargs) -> None:
+        super().__init__(dct=True, *args, **kwargs)
+
+

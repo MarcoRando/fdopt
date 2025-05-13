@@ -23,3 +23,6 @@ class RademacherDirections(DirectionGenerator):
     
     def __call__(self):
         return (2.0 * (torch.rand((self.l, self.d), dtype=self.dtype, generator=self.generator, device=self.device) < 0.5) - 1.0).to(dtype=self.dtype)
+
+    def __str__(self):
+        return f"Rademacher_{self.d}_{self.l}"

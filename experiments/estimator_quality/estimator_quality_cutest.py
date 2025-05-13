@@ -23,6 +23,7 @@ methods = {
     'rademacher' : RademacherDirections,
     'coordinate' : CoordinateDirections,
     'householder' : Householder,
+    "permuted_householder" : PermutedHouseholder,
     'butterfly' : ButterflyMatrix,
     'qr' : QRDirections,
 }

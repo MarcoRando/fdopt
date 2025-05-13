@@ -8,11 +8,11 @@ import pandas as pd
 import numpy as np
 from math import sqrt
 from fdopt.direction_generators import *
-
+from fdopt.grad_estimators import ForwardFD
 
 sys.path.append("../")
 
-from synthetic_targets import LeastSquares, RegularizedLogistic
+from synthetic_targets import LeastSquares, RegularizedLogistic, SparseSum
 from utils import compute_error_time, get_grad_estimator, get_target_function
 
 methods = {
@@ -21,6 +21,7 @@ methods = {
     'rademacher' : RademacherDirections,
     'gaussian' : GaussianDirections,
     'householder' : Householder,
+    'permuted_householder' : PermutedHouseholder,
     'butterfly' : ButterflyMatrix,
     'qr' : QRDirections,
 }
@@ -29,14 +30,13 @@ methods = {
 
 def run_experiment(args):
     fun_name = args.fun_name
-    grad_estimator = args.grad_estimator
     base_dir = args.out_dir
     dtype = torch.float64
     device = 'cuda'
     seed = 12131419
 
     d = args.d
-    num_directions = [1, d//3, d//2, round((4/5) * d),  d] 
+    num_directions = [2, d//3, d//2, round((4/5) * d),  d] 
     sigma_noise = args.sigma
 
     L, mu = args.L, args.mu
@@ -45,18 +45,21 @@ def run_experiment(args):
     reps = args.reps 
     num_init = args.num_init
     n = args.n
+    s = args.s
     lam = args.lam
-    g = get_grad_estimator(grad_estimator=grad_estimator, norm_const=1.0)
+    g = ForwardFD(norm_const=1.0) #get_grad_estimator(grad_estimator=grad_estimator, norm_const=1.0)
 
 
     if fun_name == 'least_squares':
         fun = LeastSquares(d, mu=mu, L=L, set_l=True, dtype=dtype, device=device, sigma_noise=sigma_noise, seed=seed)
     elif fun_name == 'logistic':
         fun = RegularizedLogistic(d, n, lam=lam, dtype=dtype, device=device, sigma_noise=sigma_noise, seed=seed)
+    elif fun_name == 'sparse_sum':
+        fun = SparseSum(d, s=s, dtype=dtype, device=device, sigma_noise=sigma_noise, seed=seed)
     else:
         fun =get_target_function(fun_name)(d, dtype=dtype, device=device, sigma_noise=sigma_noise, seed=seed)
 
-    out_dir = f"{base_dir}/grad_approx_error/noise_{sigma_noise}/{grad_estimator}"
+    out_dir = f"{base_dir}/grad_approx_error/noise_{sigma_noise}/ffd"
 
     os.makedirs(out_dir, exist_ok=True)
 
@@ -88,7 +91,7 @@ if __name__ == '__main__':
     parser = ap.ArgumentParser(description="Compute gradient approximation error for a given target.", formatter_class=ap.ArgumentDefaultsHelpFormatter)
 
     parser.add_argument('fun_name', type=str)
-    parser.add_argument('grad_estimator', type=str, default='ffd')
+#    parser.add_argument('grad_estimator', type=str, default='ffd')
     parser.add_argument('d', type=int, default=50)
 
     # Parameters for Least Squares
@@ -98,6 +101,9 @@ if __name__ == '__main__':
     # Parameters for Logistic
     parser.add_argument('--n', type=int, default=1000)
     parser.add_argument('--lam', type=float, default=1e-5)
+
+    # Sparse Sum
+    parser.add_argument('--s', type=int, default=10)
 
 
     parser.add_argument('--out_dir', type=str, default='./')

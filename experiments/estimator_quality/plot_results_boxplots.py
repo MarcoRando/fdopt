@@ -7,9 +7,8 @@ import matplotlib
 
 matplotlib.rcParams['pdf.fonttype'] = 42
 matplotlib.rcParams['ps.fonttype'] = 42
-direction_type = ['spherical', 'gaussian', 'rademacher', 'coordinate', 'householder', 'butterfly', 'qr']
-
-colors = ['red', 'orange', 'green', 'blue', 'purple', 'brown', 'gray']
+direction_type = ['spherical', 'gaussian', 'rademacher', 'coordinate', 'householder', 'butterfly', 'permuted_householder', 'qr']
+colors = ['red', 'orange', 'green', 'blue', 'purple', 'brown', 'pink', 'gray']
 
 fun_name = sys.argv[1]
 d = int(sys.argv[2])
@@ -23,8 +22,13 @@ elif fun_name == 'least_squares':
     title = "Least Squares"
 elif fun_name == 'trid':
     fname = title = "Trid"
+elif fun_name == 'sparse_sum':
+    fname = title = "Sparse Sum"
+    s = int(sys.argv[4])
+    fname = f"SparseSum_{s}"
 elif fun_name == 'quing':
-    fname = title = "Quing"
+    fname = "Quing"
+    title = "Qing"
 elif fun_name == 'rosenbrock':
     fname = title = "Rosenbrock"
 elif fun_name == 'stib':
@@ -34,8 +38,8 @@ elif fun_name == 'stib':
 
 #d = int(sys.argv[3]) #dimensions[0]
 
-num_directions = [1, d//3, d//2, round(d * (4/5)), d] #list(range(1, d, 2)) + [d]
-l_labels = ['1', 'd/3', 'd/2', '4/5 d', 'd']
+num_directions = [2, d//3, d//2, round(d * (4/5)), d] #list(range(1, d, 2)) + [d]
+l_labels = ['2', 'd/3', 'd/2', '4/5 d', 'd']
 
 fig, ax = plt.subplots(1, 5, figsize=(18, 4))
 fig.suptitle(title, fontsize=20)
@@ -61,5 +65,8 @@ for (i, l) in enumerate(num_directions):
 
 fig.supylabel("$\\frac{\\| g(x, P, h) - \\nabla F(x) \\|}{\\| \\nabla F(x)  \\|}$", fontsize=16)
 fig.tight_layout()
-fig.savefig(f"./{fun_name}_d_{d}.pdf", bbox_inches='tight')
+if fun_name == 'sparse_sum':
+    fig.savefig(f"./{fun_name}_d_{d}_s_{s}.pdf", bbox_inches='tight')
+else:
+    fig.savefig(f"./{fun_name}_d_{d}.pdf", bbox_inches='tight')
 plt.close(fig)

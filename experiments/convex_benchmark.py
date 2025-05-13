@@ -53,9 +53,10 @@ class Schwefel223Function(TargetFunction):
 
 class ZakharovFunction(TargetFunction):
     def __init__(self, d, dtype=torch.float64, device='cpu', sigma_noise=0, seed=121314):
-        super().__init__(d, dtype, device, sigma_noise, seed)
+        super().__init__("Zakharov", d, dtype, device, sigma_noise, seed)
         self.bounds = torch.Tensor([[-5.0, 10.0] for _ in range(d)])
         self.min_f = 0.0
+        self.x0 = torch.full((1, self.d), 0.001, dtype=self.dtype, device=self.device)
                 
     def __call__(self, x):
         n, d = x.shape
@@ -151,6 +152,14 @@ class TridFunction(TargetFunction):
         super().__init__("Trid", d, dtype, device, sigma_noise, seed)
         self.bounds = torch.tensor([[-d**2, d**2] for _ in range(d)], device=device, dtype=dtype)
         self.min_f = - (d * (d + 4) * (d - 1)) / 6
+        x0 = torch.zeros((1, d), dtype=dtype, device=device)
+
+        for i in range(d):
+            x0[0, i] = (i + 1) * (d - (i + 1) + 1)
+
+        x0 *= 0.1
+
+        self.x0 = x0 #torch.ones((1, self.d), dtype=self.dtype, device=self.device)
     
     def __call__(self, x):
         term1 = (x - 1).square().sum(dim=1, keepdim=True)  # Sum of squared terms

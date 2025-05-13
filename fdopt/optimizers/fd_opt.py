@@ -1,10 +1,13 @@
 import torch
 import tqdm
+import time
 
 from typing import Callable, Any, Tuple
+from fdopt.optimizers.opt import Optimizer
 from fdopt.direction_generators import DirectionGenerator
 from fdopt.grad_estimators import GradEstimator
 from fdopt.stepsize import Stepsize
+
 
 class FDOpt:
         
@@ -45,7 +48,6 @@ class LSFDOpt:
                 g : GradEstimator,
                 gamma_0 : float, 
                 h : Callable[[Any], float] | float,
-                grad_cost : int,
                 gamma_minmax : Tuple[float, float] = (1e-5, 1.0),
                 theta : float = 0.5,
                 rho : float = 2.0,
@@ -57,7 +59,6 @@ class LSFDOpt:
         self.h = h if isinstance(h, Callable) else lambda t : h
         self.gamma_minmax = gamma_minmax
         self.theta = theta
-        self.grad_cost = grad_cost
         self.rho = rho
         self.c = c
         
@@ -66,25 +67,37 @@ class LSFDOpt:
         x_k = x_0.clone()
         f_k = f(x_k)
         f_values = [f_k.cpu().item()]
-        g_norms = [f.grad(x_k).norm(p=2).cpu().item()]
         num_evals = [1]
-        iterator = tqdm.tqdm(range(T))
+        it_times = [0.0]
+#        iterator = tqdm.tqdm(range(T))
         gamma = self.gamma_0
         gammas = [gamma]
-        for k in iterator:
+        k = 0
+        while k < T:
+            it_time = time.time()
             h_k = self.h(k)
             P_k = self.P()
             g_k = self.g(f, x_k, P_k, h_k)
             sq_norm = g_k.norm(p=2).square()
-            num_evals.append(self.grad_cost + 1)
-            while f(x_k - gamma * g_k) > f_k - gamma * self.c * sq_norm and gamma > self.gamma_minmax[0]:
+            k += self.P.l + 1
+            num_evals.append(self.P.l + 1)
+
+            while f(x_k - gamma * g_k) >= f_k - gamma * self.c * sq_norm and gamma > self.gamma_minmax[0]:
                 gamma = max(self.theta * gamma, self.gamma_minmax[0])
-                num_evals[-1] += 1          
-            x_k = x_k - gamma * g_k
+                num_evals[-1] += 1
+                k += 1
+                if k >= T:
+                    return x_k, f_values, num_evals, gammas, it_times
             gammas.append(gamma)
-            gamma = min(gamma * self.rho, self.gamma_minmax[1])
+            if f(x_k - gamma * g_k) < f_k - gamma * self.c * sq_norm:
+                x_k = x_k - gamma * g_k
+                gamma = min(gamma * self.rho, self.gamma_minmax[1])
+            it_time = time.time() - it_time
+            # else:
+            #     gamma = self.gamma_0
             f_k = f(x_k)
             f_values.append(f_k.cpu().item())
-            g_norms.append(f.grad(x_k).norm(p=2).cpu().item())
-            iterator.set_postfix({'f(x_k)' : f_values[-1] , '|grad(x)|' : g_norms[-1], 'gamma' : gamma})
-        return x_k, f_values, num_evals, gammas, g_norms
+            it_times.append(it_time)
+            print(f'[--] directions = {self.P}\tk = {k}/{T}\tf(x_k) = {f_k.cpu().item()}\tgamma = {gamma}\ttime = {round(it_time, 4)}')
+ #           iterator.set_postfix({'f(x_k)' : f_values[-1] , 'gamma' : gamma})
+        return x_k, f_values, num_evals, gammas, it_times
