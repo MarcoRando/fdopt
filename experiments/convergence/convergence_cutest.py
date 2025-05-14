@@ -66,7 +66,7 @@ def run_experiment(args):
         problems = f.readlines()
 
     data = []
-    for problem in problems:
+    for problem in problems: 
         g = ForwardFD(norm_const=1.0) # get_grad_estimator(grad_estimator=grad_estimator, norm_const=1.0)
         fun, d_idx, problem_name = get_pycutest_target(problem)
         d = fun.d
@@ -81,7 +81,8 @@ def run_experiment(args):
                 P = matrix_cls(d = d, l = l, dtype=dtype, device=device)
                 g.nrm_const = 1/l if label=='gaussian' or label=='rademacher' else d/l
                 gamma = 0.5 
-                opt = LSFDOpt(P = P, g = g, gamma_0=gamma, h = h, gamma_minmax=(1e-10, 1.0), theta=0.5, rho=2.0, c = 0.00001)
+                # gamma max was 1.0
+                opt = LSFDOpt(P = P, g = g, gamma_0=gamma, h = h, gamma_minmax=(1e-10, 1000.0), theta=0.5, rho=2.0, c = 0.00001)
                 x0 = fun.x0
                 f_0 = fun(x0).cpu().item()
                 for r in range(reps):
