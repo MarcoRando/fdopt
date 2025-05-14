@@ -33,20 +33,22 @@ generator = torch.Generator(device=device).manual_seed(seed)
 
 training_set = torchvision.datasets.MNIST(root='./data', train=True, download=True, transform=transform)
 test_set = torchvision.datasets.MNIST(root='./data', train=False, download=True, transform=transform)
+
+training_loader = torch.utils.data.DataLoader(training_set, batch_size=batch_size, shuffle=True)
 test_loader = torch.utils.data.DataLoader(test_set, batch_size=batch_size, shuffle=True)
 
-train_size = len(training_set)
-valid_size = 0.2
-split_point = int(floor(valid_size * train_size))
-indices = list(range(train_size))
+# train_size = len(training_set)
+# valid_size = 0.2
+# split_point = int(floor(valid_size * train_size))
+# indices = list(range(train_size))
 
-tr_idx, vl_idx = indices[split_point:], indices[:split_point]
+# tr_idx, vl_idx = indices[split_point:], indices[:split_point]
 
-tr_sampler = SubsetRandomSampler(tr_idx, generator = torch.Generator().manual_seed(seed))
-vl_sampler = SubsetRandomSampler(vl_idx, generator = torch.Generator().manual_seed(seed))
+# tr_sampler = SubsetRandomSampler(tr_idx, generator = torch.Generator().manual_seed(seed))
+# vl_sampler = SubsetRandomSampler(vl_idx, generator = torch.Generator().manual_seed(seed))
 
-training_loader = torch.utils.data.DataLoader(training_set, batch_size=batch_size, sampler=tr_sampler)
-validation_loader = torch.utils.data.DataLoader(training_set, batch_size=batch_size, sampler=vl_sampler)
+# training_loader = torch.utils.data.DataLoader(training_set, batch_size=batch_size, sampler=tr_sampler)
+# validation_loader = torch.utils.data.DataLoader(training_set, batch_size=batch_size, sampler=vl_sampler)
 
 
 
@@ -70,8 +72,8 @@ def compute_accuracy(loader):
         running_loss += (y == F.softmax(preds.cpu(), 1).max(1)[1]).to(torch.int64).sum().item()
         iterator.set_postfix({'succesfully classified' : running_loss})
     return running_loss
-print("Accuracy on Training:", compute_accuracy(training_loader) / len(tr_idx))    
-print("Accuracy on Validation:", compute_accuracy(validation_loader) / len(vl_idx))    
+print("Accuracy on Training:", compute_accuracy(training_loader) / len(training_set))    
+#print("Accuracy on Validation:", compute_accuracy(validation_loader) / len(vl_idx))    
 print("Accuracy on Test:", compute_accuracy(test_loader) / len(test_set))    
 
 
