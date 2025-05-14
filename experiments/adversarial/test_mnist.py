@@ -3,6 +3,7 @@
 import sys
 import torch
 import torchvision
+import tqdm
 import torchvision.transforms as transforms
 from torch.nn import CrossEntropyLoss
 from torch.optim import Adam
@@ -30,9 +31,23 @@ device = 'cuda'
 dtype = torch.float64
 generator = torch.Generator(device=device).manual_seed(seed)
 
+training_set = torchvision.datasets.MNIST(root='./data', train=True, download=True, transform=transform)
+test_set = torchvision.datasets.MNIST(root='./data', train=False, download=True, transform=transform)
+test_loader = torch.utils.data.DataLoader(test_set, batch_size=batch_size, shuffle=True)
 
+train_size = len(training_set)
+valid_size = 0.2
+split_point = int(floor(valid_size * train_size))
+indices = list(range(train_size))
 
-test_set = torchvision.datasets.MNIST(root='./data', train=False, download=False, transform=transform)
+tr_idx, vl_idx = indices[split_point:], indices[:split_point]
+
+tr_sampler = SubsetRandomSampler(tr_idx, generator = torch.Generator().manual_seed(seed))
+vl_sampler = SubsetRandomSampler(vl_idx, generator = torch.Generator().manual_seed(seed))
+
+training_loader = torch.utils.data.DataLoader(training_set, batch_size=batch_size, sampler=tr_sampler)
+validation_loader = torch.utils.data.DataLoader(training_set, batch_size=batch_size, sampler=vl_sampler)
+
 
 
 net = MNISTNet(device=device,dtype=dtype)
@@ -44,26 +59,19 @@ net.eval()
 
 
 
+def compute_accuracy(loader):
+    net.eval()
+    running_loss = 0.0
+    iterator = tqdm.tqdm(enumerate(loader))
+    for (i, data) in iterator:
+        x, y = data
+        x = x.to(device).to(torch.float64)
+        preds = net(x)
+        running_loss += (y == F.softmax(preds.cpu(), 1).max(1)[1]).to(torch.int64).sum().item()
+        iterator.set_postfix({'succesfully classified' : running_loss})
+    return running_loss
+print("Accuracy on Training:", compute_accuracy(training_loader) / len(tr_idx))    
+print("Accuracy on Validation:", compute_accuracy(validation_loader) / len(vl_idx))    
+print("Accuracy on Test:", compute_accuracy(test_loader) / len(test_set))    
 
-x, y = test_set[20]
-x = x.to(dtype=dtype, device=device)
 
-target = AdversarialTarget(net, x, y)
-
-v =  -0.65 * torch.randn((2, 784), generator=generator, dtype=torch.float64, device=device) 
-im_pert = target.apply_perturbation(v)
-
-
-ris = target(v)
-print("Result: ", ris)
-for i in range(2):
-    fig, ax = plt.subplots(1, 3, figsize=(12,6))
-    ax[0].set_title(f"Original [y = {y}]")
-    ax[0].imshow(x.view(28, 28).cpu().detach().numpy(), cmap='gray')
-    ax[1].set_title(f"Perturbed [y = {target.net(im_pert[i].view(1, 1, 28, 28)).argmax(1).cpu().item() }]")
-    ax[1].imshow(im_pert[i].view(28, 28).cpu().detach().numpy(), cmap='gray')
-    ax[2].set_title(f"Perturbation $v$")
-    ax[2].imshow(v[i].view(28, 28).cpu().detach().numpy(), cmap='gray')
-    fig.tight_layout()
-    fig.savefig(f"./mnist_test_pert_{i}.png", bbox_inches='tight')
-    plt.close(fig)
