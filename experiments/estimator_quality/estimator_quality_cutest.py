@@ -15,7 +15,7 @@ from fdopt.direction_generators import *# Householder, ButterflyMatrix, Coordina
 sys.path.append("../")
 
 from synthetic_targets import LeastSquares, PycutestTarget
-from utils import compute_error_time, get_grad_estimator, get_target_function
+from utils import compute_error_time, get_target_function
 
 methods = {
     'spherical' : SphericalDirections,
@@ -48,15 +48,13 @@ def get_pycutest_target(problem_name):
 
 
 def run_experiment(args):
-    grad_estimator = args.grad_estimator
     base_dir = args.out_dir
 
-    sigma_noise = args.sigma
 
     h = args.h
     reps = args.reps 
 
-    out_dir = f"{base_dir}/grad_approx_error/noise_{sigma_noise}/{grad_estimator}/cutest"#.format(mu, L)
+    out_dir = f"{base_dir}/grad_approx_error/ffd/cutest"#.format(mu, L)
 
     os.makedirs(out_dir, exist_ok=True)
 
@@ -64,12 +62,12 @@ def run_experiment(args):
         problems = f.readlines()
 
     for problem in problems:
-        g = get_grad_estimator(grad_estimator=grad_estimator, norm_const=1.0)
+        g = ForwardFD(norm_const=1.0) 
         fun, d_idx = get_pycutest_target(problem)
         
         x = fun.x0 
         d = x.shape[1]
-        num_directions = [1, d//3, d//2, round((4/5) * d), round((9/10) * d),  d] 
+        num_directions = [2, d//3, d//2, round((4/5) * d), d] 
         data = []
         for (j, l) in enumerate(num_directions):
             prob_name = problem.split(",")[0]
@@ -91,13 +89,10 @@ def run_experiment(args):
 if __name__ == '__main__':
     parser = ap.ArgumentParser(description="Compute gradient approximation error for CUTEST functions.", formatter_class=ap.ArgumentDefaultsHelpFormatter)
 
-    parser.add_argument('grad_estimator', type=str, default='ffd')
-
 
 
     parser.add_argument('--out_dir', type=str, default='./')
     parser.add_argument('--reps', type=int, default=50)
-    parser.add_argument('--sigma', type=float, default=0.0)
 
     parser.add_argument('--h', type=float, default=1e-7)
     args = parser.parse_args()

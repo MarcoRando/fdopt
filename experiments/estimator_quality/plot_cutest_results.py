@@ -20,15 +20,13 @@ results = {dir_type : [[] for _ in range(len(l_labels))] for dir_type in directi
 
 directories = os.listdir(base_path)
 
-print("[--] Num files: {}".format(len(directories)))
-
 for filename in directories:
     if not filename.endswith(".csv"):
         continue
     data = pd.read_csv(base_path +"/" + filename)
     d = data['dimension'].values[0]
     for dir_type in direction_type:
-        num_directions = [1, d//3, d//2, round(d * (4/5)), d]
+        num_directions = [2, d//3, d//2, round(d * (4/5)), d]
         for (i, l) in enumerate(num_directions):
             data_l = data[data['l'] == l]
             results[dir_type][i].append(np.mean(data_l[data_l['directions'] == dir_type]['err'].values))

@@ -19,12 +19,13 @@ reps = int(sys.argv[3])
 
 out_dir = sys.argv[4]
 
-#T = int(sys.argv[5])
+L = float(sys.argv[5]) # Lipschitz constant of the gradient
+mu = float(sys.argv[6]) # strong convexity parameter
+
+h = float(sys.argv[7])
 
 
-#data_dir = "./convergence/ris/convergence/noise_0.0/ffd"
-method = 'ffd' 
-data_dir = f"{out_dir}/convergence/noise_0.0/{method}"
+data_dir = f"{out_dir}/convergence/ffd"
 direction_type = ['spherical', 'gaussian', 'rademacher', 'coordinate', 'householder', 'butterfly', 'permuted_householder', 'qr']
 colors = ['red', 'orange', 'green', 'blue', 'purple', 'brown', 'pink', 'gray']
 def read_result(fname):
@@ -53,13 +54,6 @@ if fun_name == 'logistic':
 elif fun_name == 'least_squares':
   title = "Least Squares"
   out_name = 'ls'
-elif fun_name == 'sparse_sum':
-  title = "Sparse Sum"
-  out_name = 'sparse_sum'
-elif fun_name == 'stib':
-  title = "Styblinski-Tang"
-  file_name = "StyblinskiTang"
-  out_name = 'styblinski_tang'
 elif fun_name == 'quing':
   title = "Qing"
   file_name = "Quing"
@@ -72,22 +66,6 @@ elif fun_name == 'trid':
   title = "Trid"
   file_name = "Trid"
   out_name = 'trid'
-elif fun_name == 'dixon_price':
-  title = "Dixon Price"
-  file_name = "DixonPrice"
-  out_name = 'dixon_price'
-elif fun_name == 'sum_of_powers':
-  title = "Sum of Powers"
-  file_name = "SumOfPowers"
-  out_name = 'sum_of_powers'
-elif fun_name == 'sum_of_squares':
-  title = "Sum of Squares"
-  file_name = "SumOfSquares"
-  out_name = 'sum_of_squares'
-elif fun_name == 'rotated_hyper_ellipsoid':
-  title = "Rotated Hyper-Ellipsoid"
-  file_name = "RotatedHyperEllipsoid"  
-  out_name = 'rotated_hyper_ellipsoid'
 elif fun_name == 'griewank':
   title = "Griewank"
   file_name = "Griewank"
@@ -114,10 +92,7 @@ for i in range(len(num_directions)):
       if fun_name == 'logistic':
         vals, _, f_0,  min_f = read_result(f"{data_dir}/LogisticReg_1000_{d}_{dir_type}_{num_directions[i]}_1e-07_{r}.csv")      
       elif fun_name == 'least_squares':
-        vals, _, f_0,  min_f = read_result(f"{data_dir}/LeastSquares_10000.0_1.0_{d}_{dir_type}_{num_directions[i]}_1e-07_{r}.csv")
-      elif fun_name == 'sparse_sum':
-        s = int(sys.argv[5])
-        vals, _, f_0,  min_f = read_result(f"{data_dir}/SparseSum_{s}_{d}_{dir_type}_{num_directions[i]}_1e-07_{r}.csv")
+        vals, _, f_0,  min_f = read_result(f"{data_dir}/LeastSquares_{L}_{mu}_{d}_{dir_type}_{num_directions[i]}_1e-07_{r}.csv")
       else:
         vals, _, f_0,  min_f = read_result(f"{data_dir}/{file_name}_{d}_{dir_type}_{num_directions[i]}_1e-07_{r}.csv")
       mu_vals.append(vals)
@@ -143,7 +118,7 @@ for i in range(len(num_directions)):
   #   ax.set_ylabel("$F(x_k)$", fontsize=18)
 
 fig.tight_layout()
-fig.savefig(f"./linesearch_{out_name}_{method}_{d}.pdf", bbox_inches='tight')
+fig.savefig(f"./linesearch_{out_name}_ffd_{d}.pdf", bbox_inches='tight')
 plt.close(fig)
 
 

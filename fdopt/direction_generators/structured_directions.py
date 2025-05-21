@@ -2,7 +2,6 @@ import time
 import torch
 from math import floor, log2, pi, sin, cos, sqrt
 
-from torch_dct import dct
 
 from fdopt.direction_generators.generator import DirectionGenerator
 
@@ -36,14 +35,6 @@ class QRDirections(DirectionGenerator):
     def __str__(self):
         return f"QR_{self.d}_{self.l}"
 
-class SVDDirections(DirectionGenerator):
-    def __call__(self) -> torch.Tensor:
-        P = torch.randn(self.d, self.l, generator=self.generator, dtype=self.dtype, device = self.device)
-        return torch.linalg.svd(P, full_matrices=False)[0].T
-
-    def __str__(self):
-        return f"QR_{self.d}_{self.l}"
-
     
 class Householder(DirectionGenerator):
     
@@ -55,16 +46,8 @@ class Householder(DirectionGenerator):
     def __call__(self) -> torch.Tensor:
         v = torch.randn(self.d, generator=self.generator, dtype=self.dtype,  device = self.device)
         v /=torch.linalg.norm(v, ord=2)
-#        print(v)
         return (self.I - 2 * v.outer(v[:self.l])).T
-#         for i in range(1, self.num_reflectors):
-#             v =  torch.randn(self.d, generator=self.generator, dtype=self.dtype,  device = self.device)
-#             v /=torch.linalg.norm(v, ord=2)
-#             H = (self.I - 2 * v.outer(v)) @ H
-            
-# #        sx = v[:self.l].sign() #if self.take_all_sign  else v[0].sign()
-#       #  print(H[:, :self.l].T)
-#         return  H[:, :self.l].T #(self.I_l - 2 * v.outer(v[:self.l])).T
+
 
     def __str__(self):
         return f"Householder_{self.d}_{self.l}"
@@ -91,9 +74,8 @@ class PermutedHouseholder(DirectionGenerator):
 
 class ButterflyMatrix(DirectionGenerator):
     
-    def __init__(self, dct : bool = False, *args, **kwargs) -> None:
+    def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
-        self.dct = dct
             
     def __call__(self) -> torch.Tensor:
         B = torch.ones(1, 1, dtype=self.dtype, device=self.device)
@@ -112,49 +94,14 @@ class ButterflyMatrix(DirectionGenerator):
         to_add = self.d - B.shape[0]
         B = torch.vstack([B, torch.zeros(self.d - B.shape[0], B.shape[1], dtype=self.dtype, device=self.device)])
         B = torch.hstack([B, torch.zeros(B.shape[0], to_add, dtype=self.dtype, device=self.device )])
-#        if B.shape[1] < self.l:
-#            B = torch.hstack([B, torch.zeros(B.shape[0], self.l - B.shape[1], dtype=self.dtype, device=self.device )])
+
         B[range(d_0, d_0 + to_add), range(d_eff, d_eff + to_add)] = 1.0
-        if self.dct:
-            return dct(B[:, :self.l].T, norm='ortho')
-#        print(B)
         B = B[:, torch.randperm(B.shape[1], generator=self.generator, device=self.device)[:self.l]]
         return B.T
       
     def __str__(self):
-        if self.dct:
-            return f"ButterflyDCT_{self.d}_{self.l}"            
         return f"Butterfly_{self.d}_{self.l}"
 
-class HadamardMatrix(DirectionGenerator):
 
-    def __call__(self) -> torch.Tensor:
-        B = torch.ones(1, 1, dtype=self.dtype, device=self.device)
-        num_iters = floor(log2(self.d))
-        for i in range(num_iters):
-            B1 = torch.vstack([ B , B])
-            B2 = torch.vstack([B, -B])
-            B = torch.hstack((B1, B2))
-        B = (1 / sqrt(B.shape[0])) *  B[:, :self.l]
-        if self.d == B.shape[0]:
-            return B[:, :self.l].T
-        d_eff = B.shape[1]  
-        d_0 = B.shape[0]
-        to_add = self.d - B.shape[0]
-        B = torch.vstack([B, torch.zeros(self.d - B.shape[0], B.shape[1], dtype=self.dtype, device=self.device)])
-        B = torch.hstack([B, torch.zeros(B.shape[0], to_add, dtype=self.dtype, device=self.device )])
-#        if B.shape[1] < self.l:
-#            B = torch.hstack([B, torch.zeros(B.shape[0], self.l - B.shape[1], dtype=self.dtype, device=self.device )])
-        B[range(d_0, d_0 + to_add), range(d_eff, d_eff + to_add)] = 1.0
-        B = B[:, torch.randperm(B.shape[1], generator=self.generator, device=self.device)[:self.l]]
-        return B.T
-
-    def __str__(self):
-        return f"Hadamard_{self.d}_{self.l}"
-
-class ButterflyMatrixDCT(ButterflyMatrix):
-    
-    def __init__(self,  *args, **kwargs) -> None:
-        super().__init__(dct=True, *args, **kwargs)
 
 

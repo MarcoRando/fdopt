@@ -1,5 +1,4 @@
 from setuptools import setup, find_packages
-#from torch.utils.cpp_extension import BuildExtension, CppExtension
 
 setup(
     name="fdopt",
@@ -10,4 +9,5 @@ setup(
         'setuptools>=18.0'
     ],
     packages=find_packages(),
+    install_requires=['numpy==1.24.3', 'tqdm', 'matplotlib', 'pandas']
 )

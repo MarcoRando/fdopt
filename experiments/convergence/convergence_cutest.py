@@ -16,7 +16,7 @@ from fdopt.grad_estimators import ForwardFD
 sys.path.append("../")
 
 from synthetic_targets import LeastSquares, PycutestTarget
-from utils import compute_error_time, get_grad_estimator, get_target_function
+from utils import compute_error_time, get_target_function
 
 
 methods = {
@@ -53,13 +53,12 @@ def run_experiment(args):
 
     base_dir = args.out_dir
 
-    sigma_noise = args.sigma
 
     T = args.T
     h = args.h
     reps = args.reps 
 
-    out_dir = f"{base_dir}/convergence/noise_{sigma_noise}/ffd/cutest"#.format(mu, L)
+    out_dir = f"{base_dir}/convergence/ffd/cutest"#.format(mu, L)
 
     os.makedirs(out_dir, exist_ok=True)
     with open("../cutest_problem_names.log", 'r') as f:
@@ -100,7 +99,6 @@ if __name__ == '__main__':
     parser.add_argument("--T", type=int, default=10000, help="Number of function evaluations")
     parser.add_argument('--out_dir', type=str, default='./')
     parser.add_argument('--reps', type=int, default=50)
-    parser.add_argument('--sigma', type=float, default=0.0)
 
     parser.add_argument('--h', type=float, default=1e-7)
     args = parser.parse_args()

@@ -13,8 +13,8 @@ from fdopt.grad_estimators import ForwardFD
 
 sys.path.append("../")
 
-from synthetic_targets import LeastSquares, RegularizedLogistic, SparseSum, Quadratic
-from utils import compute_error_time, get_grad_estimator, get_target_function, get_grad_cost
+from synthetic_targets import LeastSquares, RegularizedLogistic
+from utils import compute_error_time, get_target_function
 
 methods = {
     'spherical' : SphericalDirections,
@@ -38,16 +38,15 @@ def run_experiment(args):
 
 
     fun_name = args.fun_name
-   # grad_estimator = args.grad_estimator
+
     base_dir = args.out_dir
 
     d = args.d
     num_directions = [d, round((4/5) * d), d//2, d //3, 2] #[ 2,  d//3, d//2, round((4/5) * d),  d] 
-    sigma_noise = args.sigma
 
     L, mu = args.L, args.mu
     T = args.T
-    s = args.s
+
     h = args.h
     reps = args.reps 
     n = args.n
@@ -57,21 +56,18 @@ def run_experiment(args):
 
 
     if fun_name == 'least_squares':
-        fun = LeastSquares(d, mu=mu, L=L, set_l=True, dtype=dtype, device=device, sigma_noise=sigma_noise, seed=seed)
+        fun = LeastSquares(d, mu=mu, L=L, set_l=True, dtype=dtype, device=device,  seed=seed)
     elif fun_name == 'logistic':
-        fun = RegularizedLogistic(d, n, lam=lam, dtype=dtype, device=device, sigma_noise=sigma_noise, seed=seed)
-    elif fun_name == 'sparse_sum':
-        fun = SparseSum(d, s=s, dtype=dtype, device=device, sigma_noise=sigma_noise, seed=seed)
+        fun = RegularizedLogistic(d, n, lam=lam, dtype=dtype, device=device, seed=seed)
     else:
-        fun =get_target_function(fun_name)(d, dtype=dtype, device=device, sigma_noise=sigma_noise, seed=seed)
-    out_dir = f"{base_dir}/convergence/noise_{sigma_noise}/ffd"#{grad_estimator}"#.format(mu, L)
+        fun =get_target_function(fun_name)(d, dtype=dtype, device=device, seed=seed)
+    out_dir = f"{base_dir}/convergence/ffd"#{grad_estimator}"#.format(mu, L)
 
     os.makedirs(out_dir, exist_ok=True)
 
     data = []
     for (i, l) in enumerate(num_directions):
         
-        grad_cost = (l + 1)# get_grad_cost(grad_estimator, l)
         print(f"[++] Computing for l = {l} and h = {h}")
         for (label, matrix_cls) in methods.items():
             generator = torch.Generator(device=device).manual_seed(123123123)
@@ -96,7 +92,6 @@ if __name__ == '__main__':
     parser = ap.ArgumentParser(description="Compute gradient approximation error for a given target.", formatter_class=ap.ArgumentDefaultsHelpFormatter)
 
     parser.add_argument('fun_name', type=str)
-  #  parser.add_argument('grad_estimator', type=str, default='ffd')
     parser.add_argument('d', type=int, default=50)
 
     # Parameters for Least Squares
@@ -107,14 +102,9 @@ if __name__ == '__main__':
     parser.add_argument('--n', type=int, default=1000)
     parser.add_argument('--lam', type=float, default=1e-5)
 
-    # Parameters for Sparse Sum
-    parser.add_argument('--s', type=int, default=10)
-
-
     parser.add_argument("--T", type=int, default=10000, help="Number of function evaluations")
     parser.add_argument('--out_dir', type=str, default='./')
     parser.add_argument('--reps', type=int, default=50)
-    parser.add_argument('--sigma', type=float, default=0.0)
 
     parser.add_argument('--h', type=float, default=1e-7)
     args = parser.parse_args()

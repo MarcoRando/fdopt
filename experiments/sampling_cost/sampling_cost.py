@@ -6,7 +6,7 @@ import tqdm
 import torch
 import pandas as pd 
 import numpy as np
-from fdopt.direction_generators import * # SphericalDirections,Householder,CoordinateDirections,GaussianDirections,QRDirections,ButterflyMatrix, SVDDirections
+from fdopt.direction_generators import * 
 
 
 matrices = [
@@ -17,7 +17,6 @@ matrices = [
     ("permuted_householder", PermutedHouseholder),
     ("coordinate", CoordinateDirections),
     ("butterfly", ButterflyMatrix),
-    ("subspace_qr", SubspaceQR),
     ("qr", QRDirections),
 ]
 
@@ -37,7 +36,7 @@ device = 'cuda'
 seed = 12341567
 dtype = torch.float64
 
-dimensions = [500, 1000, 5000]#, 10000]
+dimensions = [500, 1000, 5000, 10000]
 
 reps = sys.argv[1] 
 out_dir = sys.argv[2] +"/sampling_cost"

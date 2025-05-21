@@ -13,8 +13,8 @@ matplotlib.rcParams['ps.fonttype'] = 42
 
 base_dir = sys.argv[1]
 reps = int(sys.argv[2])
-method = 'ffd'
-data_dir = f"{base_dir}/convergence/noise_0.0/{method}/cutest"
+#method = 'ffd'
+data_dir = f"{base_dir}/convergence/ffd/cutest"
 direction_type = ['spherical', 'gaussian', 'rademacher', 'coordinate', 'householder', 'butterfly', 'permuted_householder', 'qr']
 colors = ['red', 'orange', 'green', 'blue', 'purple', 'brown', 'pink', 'gray']
 num_dirs_label = ["2", "d/3", "d/2",  "4/5 d",  'd'] #["1", "d/2", "2/3 d", "4/5 d",  'd']
@@ -59,7 +59,7 @@ with open("../cutest_problem_names.log", 'r') as f:
       problems.append((splitted[0], int(splitted[1]), int(splitted[2])))
 #      print(line)
 #      exit()
-directories = os.listdir(f"{base_dir}/convergence/noise_0.0/{method}/cutest")
+directories = os.listdir(f"{base_dir}/convergence/ffd/cutest")
 
 print("[--] Num files: ", len(directories))
 
@@ -87,8 +87,8 @@ for (function, d_idx, d) in problems:
       dir_values = []
       min_v = None
       for r in range(reps):
-        if os.path.exists(f"{base_dir}/convergence/noise_0.0/{method}/cutest/{function}_{d_idx}_{d}_{dir_type}_{l}_1e-07_{r}.csv"):
-          data = pd.read_csv(f"{base_dir}/convergence/noise_0.0/{method}/cutest/{function}_{d_idx}_{d}_{dir_type}_{l}_1e-07_{r}.csv", header=None)
+        if os.path.exists(f"{base_dir}/convergence/ffd/cutest/{function}_{d_idx}_{d}_{dir_type}_{l}_1e-07_{r}.csv"):
+          data = pd.read_csv(f"{base_dir}/convergence/ffd/cutest/{function}_{d_idx}_{d}_{dir_type}_{l}_1e-07_{r}.csv", header=None)
           val_iters = data[2].values
           feval_val = []
           for (val_idx, val) in enumerate(val_iters[:-1]):

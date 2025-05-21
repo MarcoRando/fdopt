@@ -124,7 +124,6 @@ print("[--] Results Loaded!")
 
 print("[--] Plotted performance profiles")
 
-tau = 9e-1
 
 # results[direction][num_direction][image]
 #perf_profile = []

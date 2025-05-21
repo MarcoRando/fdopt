@@ -1,6 +1,6 @@
 from fdopt.direction_generators.generator import DirectionGenerator
 from fdopt.direction_generators.unstructured_directions import GaussianDirections, SphericalDirections, RademacherDirections
-from fdopt.direction_generators.structured_directions import CoordinateDirections, QRDirections, PermutedHouseholder, HadamardMatrix, ButterflyMatrix, Householder, SVDDirections
+from fdopt.direction_generators.structured_directions import CoordinateDirections, QRDirections, PermutedHouseholder,  ButterflyMatrix, Householder
 
 __all__ = (
     'DirectionGenerator',
@@ -11,7 +11,5 @@ __all__ = (
     'QRDirections',
     'PermutedHouseholder',
     'ButterflyMatrix',
-    'HadamardMatrix',
     'Householder',
-    'SVDDirections',
 )

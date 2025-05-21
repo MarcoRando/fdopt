@@ -1,31 +1,31 @@
 import time
 import torch
 import numpy as np
-from fdopt.grad_estimators import ForwardFD, CentralFD, OptFFD, OptCFD
-from fdopt.direction_generators import *#CoordinateDirections, GaussianDirections, SphericalDirections, Householder, ButterflyMatrix, QRDirections, SVDDirections
+from fdopt.grad_estimators import ForwardFD
+from fdopt.direction_generators import *
 
 from synthetic_targets import *
-from convex_benchmark import *
-from nonconvex_benchmark import *
+# from convex_benchmark import *
+# from nonconvex_benchmark import *
 
-def get_grad_estimator(grad_estimator : str, norm_const : float = 1.0):
-    if grad_estimator == 'ffd':
-        return ForwardFD(norm_const=norm_const)
-    elif grad_estimator == 'cfd':
-        return CentralFD(norm_const=norm_const)
-    elif grad_estimator == 'opt_ffd':
-        return OptFFD(norm_const=norm_const)
-    elif grad_estimator == 'opt_cfd':
-        return OptCFD(norm_const=norm_const) 
-    raise ValueError(f"Unknown gradient estimator {grad_estimator}!")       
+# def get_grad_estimator(grad_estimator : str, norm_const : float = 1.0):
+#     if grad_estimator == 'ffd':
+#         return ForwardFD(norm_const=norm_const)
+#     elif grad_estimator == 'cfd':
+#         return CentralFD(norm_const=norm_const)
+#     elif grad_estimator == 'opt_ffd':
+#         return OptFFD(norm_const=norm_const)
+#     elif grad_estimator == 'opt_cfd':
+#         return OptCFD(norm_const=norm_const) 
+#     raise ValueError(f"Unknown gradient estimator {grad_estimator}!")       
 
 
-def get_grad_cost(grad_estimator : str, l):
-    if grad_estimator == 'ffd' or grad_estimator == 'opt_ffd':
-        return l + 1
-    elif grad_estimator == 'cfd' or grad_estimator=='opt_cfd':
-        return 2 * l
-    raise ValueError(f"Unknown gradient estimator {grad_estimator}!")       
+# def get_grad_cost(grad_estimator : str, l):
+#     if grad_estimator == 'ffd' or grad_estimator == 'opt_ffd':
+#         return l + 1
+#     elif grad_estimator == 'cfd' or grad_estimator=='opt_cfd':
+#         return 2 * l
+#     raise ValueError(f"Unknown gradient estimator {grad_estimator}!")       
 
 
 def get_target_function(target_name):
@@ -39,16 +39,6 @@ def get_target_function(target_name):
         return RosenbrockFunction
     elif target_name == 'quing':
         return QuingFunction
-    elif target_name == 'stib':
-        return StyblinskiTangFunction
-    elif target_name == 'dixon_price':
-        return ZakharovFunction
-    elif target_name == 'sum_of_powers':
-        return SumOfPowers
-    elif target_name == 'sum_of_squares':
-        return SumOfSquares
-    elif target_name == 'rotated_hyper_ellipsoid':
-        return RotatedHyperEllipsoid
     elif target_name == 'griewank':
         return GriewankFunction
     raise Exception(f"Unknown target name: {target_name}")

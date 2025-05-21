@@ -5,31 +5,25 @@ from math import sqrt
 
 import pandas as pd
 
-from sklearn.datasets import load_svmlight_file
+# from sklearn.datasets import load_svmlight_file
 
 
-def load_libsvm_data(datapath, device = 'cpu', dtype = torch.float32):
-    X, y = load_svmlight_file(datapath)
-    X = torch.from_numpy(X.toarray()).to(dtype=dtype,device=device)
-    y = torch.tensor(y, device=device, dtype=dtype)
-    return X, y
+# def load_libsvm_data(datapath, device = 'cpu', dtype = torch.float32):
+#     X, y = load_svmlight_file(datapath)
+#     X = torch.from_numpy(X.toarray()).to(dtype=dtype,device=device)
+#     y = torch.tensor(y, device=device, dtype=dtype)
+#     return X, y
 
 
 class TargetFunction:
     
-    def __init__(self, name, d, dtype = torch.float64, device = 'cpu', sigma_noise = 0.0, seed = 121314) -> None:
+    def __init__(self, name, d, dtype = torch.float64, device = 'cpu',  seed = 121314) -> None:
         self.name = name
         self.d = d
         self.dtype = dtype
         self.device = device
-        self.sigma_noise = sigma_noise
         self.generator = torch.Generator(device=device)
         self.generator.manual_seed(seed)
-
-    def add_noise(self, fx):
-        eps = self.sigma_noise * torch.randn(fx.shape[0], generator=self.generator, device=self.device, dtype=self.dtype)
-        return fx + eps
-
         
     def __call__(self, x):
         pass
@@ -45,9 +39,9 @@ class TargetFunction:
 
 class LeastSquares(TargetFunction):
     
-    def __init__(self, d, mu, L, set_l = True, dtype = torch.float64, device = 'cpu', sigma_noise = 0.0, seed = 121314) -> None:
+    def __init__(self, d, mu, L, set_l = True, dtype = torch.float64, device = 'cpu',   seed = 121314) -> None:
         assert mu < L
-        super().__init__(name="LeastSquares", d = d, dtype = dtype, device= device, sigma_noise=sigma_noise, seed=seed)
+        super().__init__(name="LeastSquares", d = d, dtype = dtype, device= device,  seed=seed)
         self.mu = mu
         self.L = L
         self.bounds = torch.tensor([[-1, 1] for _ in range(d)], device=device, dtype=dtype)
@@ -65,7 +59,7 @@ class LeastSquares(TargetFunction):
         
     def __call__(self, x):
         fx = torch.linalg.norm(self.A @ x.T - self.y, dim=0).square().mul(0.5)
-        return self.add_noise(fx)
+        return  fx
 
     def grad(self, x):
         return self.A.T @ (self.A @ x.T - self.y)
@@ -73,49 +67,11 @@ class LeastSquares(TargetFunction):
     def __str__(self):
         return f"{self.name}_{self.L}_{self.mu}_{self.d}"
     
-class SparseSum(TargetFunction):
-    
-    def __init__(self, d, s, dtype = torch.float64, device = 'cpu', sigma_noise = 0.0, seed = 121314) -> None:
-        super().__init__(name=f"SparseSum_{s}", d = d, dtype = dtype, device= device, sigma_noise=sigma_noise, seed=seed)
-        self.s = s
-        self.inds = torch.randperm(self.d, device=self.device)[:self.s]
-        self.x0 = torch.full((1, self.d), 1.0, dtype=self.dtype, device=self.device)
-        self.y = torch.randn(self.s, dtype=self.dtype, device=self.device)
-        self.bounds = torch.tensor([[-1, 1] for _ in range(d)], device=device, dtype=dtype)
-        self.min_f = 0.0
-        
-    def __call__(self, x):
-        return self.add_noise(0.5 * torch.sum((x[:, self.inds] - self.y) **2, dim =1))
-
-    def grad(self, x):
-        grad = torch.zeros_like(x)
-        grad[0, self.inds] = (x[0, self.inds] - self.y)
-        return grad
-
-class Quadratic(TargetFunction):
-
-    def __init__(self, d, dtype=torch.float64, device='cpu', seed=121314):
-        super().__init__("Quadratic", d, dtype, device, seed)
-        self.x0 = torch.ones((1, self.d), dtype=self.dtype, device=self.device)
-        self.b = torch.randn(self.d, dtype=self.dtype, device=self.device)
-        self.bounds = torch.tensor([[-1, 1] for _ in range(d)], device=device, dtype=dtype)
-        self.min_f = 0.0
-        self.A = torch.logspace(-3, 3, self.d, dtype=self.dtype, device=self.device)
-
-    def __call__(self, x):
-        Ax = self.A * x
-        quadratic = 0.5 * (x * Ax).sum(dim=-1) 
-        linear_term = (self.b * x).sum(dim=-1)
-        return self.add_noise(quadratic - linear_term)
-
-    def grad(self, x):
-        return self.A * x - self.b 
-
 
 class RegularizedLogistic(TargetFunction):
     
-    def __init__(self, d, n, lam = 1e-5, dtype=torch.float64, device='cpu', sigma_noise=0, seed=121314):
-        super().__init__("LogisticReg", d, dtype, device, sigma_noise, seed)
+    def __init__(self, d, n, lam = 1e-5, dtype=torch.float64, device='cpu',   seed=121314):
+        super().__init__("LogisticReg", d, dtype, device , seed)
         self.X = torch.randn((n, d), dtype=dtype, device=device, generator=self.generator) 
         self.w_star = torch.randn((d,), generator=self.generator, dtype=dtype, device=device)
         self.y = (self.X @ self.w_star).sign()
@@ -128,7 +84,7 @@ class RegularizedLogistic(TargetFunction):
     
     def __call__(self, w):
         expn = (1 + (-torch.matmul(w, self.X.T) * self.y).exp_()).log_().mean(dim=1)
-        return self.add_noise(expn + self.lam * w.norm(p=2, dim=1).square())
+        return expn + self.lam * w.norm(p=2, dim=1).square()
     
     def grad(self, w):
         num = self.X * -self.y.view(-1, 1) # n x d
@@ -140,52 +96,6 @@ class RegularizedLogistic(TargetFunction):
     def __str__(self):
         return f"{self.name}_{self.X.shape[0]}_{self.d}"
     
-class SyntheticTarget(TargetFunction):
-
-    def __init__(self, d, mu, L, dtype = torch.float64, device = 'cpu', sigma_noise = 0.0, seed = 121314) -> None:
-        assert mu < L
-        super().__init__(d = d, dtype = dtype, device= device, sigma_noise=sigma_noise, seed=seed)
-        self.mu = mu
-        self.L = L
-        self.x0 = torch.zeros((1, self.d), dtype=self.dtype, device=self.device)
-        self.ones_matrix = torch.ones((self.d, self.d), dtype=dtype, device=device)
-
-        
-    def __call__(self, x):
-        n = self.d
-        assert n % 2 == 0, "n must be even"        
-
-        indices_odd = torch.arange(0, n, 2, device=x.device)
-        indices_even = torch.arange(1, n, 2, device=x.device)
-        term1 = self.mu * torch.sin(x[..., indices_odd]) + torch.cos(x[..., indices_even])
-        term1_sum = term1.sum(dim=-1)
-#        print(term1_sum)
-        # term2_values = torch.zeros((x.shape[0],), dtype=x.dtype, device=x.device)
-        # for i in range(x.shape[0]):
-        #     term2_values[i] = (self.L - self.mu) / (2 * n) * (x[i, :] @ (self.ones_matrix @ x[i, :].T))
-        term2_values = (self.L - self.mu) / (2 * n) * ( x @ self.ones_matrix.T * x).sum(dim=-1)  #(x.reshape([i, :] @ (self.ones_matrix @ x[i, :].T))    
-        
-#        print(term2_values)
-#        print(t2)
-        
-#        quadratic_term = (self.L - self.mu) / (2 * n) * (x @ self.ones_matrix @ x.transpose(-1, -2))
-        fx = self.add_noise(term1_sum + term2_values)
-#        print(fx.shape)
-        return fx.flatten()
-
-    def grad(self, x):
-        n = self.d
-        assert n % 2 == 0, "n must be even"        
-        grad = torch.zeros_like(x)
-        indices_odd = torch.arange(0, n, 2, device=x.device)
-        indices_even = torch.arange(1, n, 2, device=x.device)
-
-        grad[..., indices_odd] = self.mu * torch.cos(x[..., indices_odd])  # Derivative of M*sin(x_{2i-1})
-        grad[..., indices_even] = -torch.sin(x[..., indices_even])   # Derivative of cos(x_{2i})
-        grad += ((self.L - self.mu) / n) * (self.ones_matrix @ x.T ).T  # Contribution from quadratic term
-        
-        return grad
-
 
 
 class PycutestTarget(TargetFunction):
@@ -200,17 +110,130 @@ class PycutestTarget(TargetFunction):
             
             
     def __call__(self, x):
-#        print(x.cpu().numpy())
         res = np.apply_along_axis(self.fun.obj, axis=1, arr=x.cpu().numpy())
 
         fx = torch.from_numpy(res).to(dtype=self.dtype, device=self.device)
-        return self.add_noise(fx)
+        return  fx
 
     def grad(self, x):
         return torch.from_numpy(self.fun.grad(x.cpu().numpy().flatten())).to(device=self.device, dtype=self.dtype)
-#        _, g = self.fun.obj(x.cpu().numpy().flatten(), gradient = True)
-#        return torch.from_numpy(g).to(device=self.device,dtype=self.dtype)
-    
+
     def close(self):
         if hasattr(self.fun, 'close'):
             self.fun.close()
+
+
+
+class RosenbrockFunction(TargetFunction):
+    def __init__(self, d, dtype=torch.float64, device='cpu', seed=121314):
+        super().__init__("Rosenbrock", d, dtype, device,  seed)
+        self.bounds = torch.tensor([[-5.0, 10.0] for _ in range(d)], device=device, dtype=dtype)
+        self.min_f = 0.0
+        self.x0 = torch.full((1, self.d), 0.5, dtype=self.dtype, device=self.device)
+            
+
+    def __call__(self, x):
+        x = x if x.ndim > 1 else x.unsqueeze(0) 
+        xi = x[:, :-1]
+        xi1 = x[:, 1:]
+        return (100 * (xi1 - xi**2)**2 + (1 - xi)**2).sum(dim=1).squeeze()
+
+    def grad(self, x):
+        x = x if x.ndim > 1 else x.unsqueeze(0) 
+        batch_size, d = x.shape
+        grad = torch.zeros_like(x)
+
+        xi = x[:, :-1]
+        xi1 = x[:, 1:]
+        grad[:, :-1] += -400 * xi * (xi1 - xi**2) - 2 * (1 - xi)
+        grad[:, 1:] += 200 * (xi1 - xi**2)
+
+        return grad.squeeze()
+
+
+class QuingFunction(TargetFunction):
+    def __init__(self, d, dtype=torch.float64, device='cpu',   seed=121314):
+        super().__init__("Quing", d, dtype, device , seed)
+        self.bounds = torch.tensor([[-500.0, 500.0] for _ in range(d)], device=device, dtype=dtype)
+        self.min_f = 0.0
+        self.x0 = torch.ones((1, self.d), dtype=self.dtype, device=self.device)
+            
+
+    def __call__(self, x):
+        x = x if x.ndim > 1 else x.unsqueeze(0)
+        d = x.shape[1]
+        i = torch.arange(1, d + 1, device=x.device).unsqueeze(0)  # shape (1, d)
+        return ((x ** 2 - i) ** 2).sum(dim=1).squeeze()
+
+    def grad(self, x):
+        x = x if x.ndim > 1 else x.unsqueeze(0)
+        d = x.shape[1]
+        i = torch.arange(1, d + 1, device=x.device).unsqueeze(0)  # shape (1, d)
+        grad = 4 * x * (x ** 2 - i)
+        return grad.squeeze()
+
+
+
+
+
+class GriewankFunction(TargetFunction):
+    def __init__(self, d, dtype=torch.float64, device='cpu',   seed=121314):
+        super().__init__("Griewank", d, dtype, device , seed)
+        self.bounds = torch.tensor([[-600.0, 600.0] for _ in range(d)], dtype=self.dtype, device=self.device)
+        self.min_f = 0.0
+        self.x0 = torch.full((1, self.d), 1.0, dtype=self.dtype, device=self.device)
+
+    def __call__(self, x):
+        d = x.shape[-1]
+        indices = torch.arange(1, d + 1, dtype=x.dtype, device=x.device)
+        sum_sq = torch.sum(x ** 2, dim=-1) / 4000
+        prod_cos = torch.prod(torch.cos(x / torch.sqrt(indices)), dim=-1)
+        return 1 + sum_sq - prod_cos
+
+    def grad(self, x):
+        d = x.shape[-1]
+        indices = torch.arange(1, d + 1, dtype=x.dtype, device=x.device)
+        sqrt_i = torch.sqrt(indices)
+
+        x_div_sqrt = x / sqrt_i
+        cos_term = torch.cos(x_div_sqrt)
+        sin_term = torch.sin(x_div_sqrt)
+
+        prod_cos = torch.prod(cos_term, dim=-1, keepdim=True)  # shape (..., 1)
+
+        grad_sum = x / 2000  
+        grad_prod = prod_cos * sin_term / cos_term / sqrt_i  # shape (..., d)
+        
+        return grad_sum + grad_prod  # full gradient
+
+
+
+class TridFunction(TargetFunction):
+
+    def __init__(self, d, dtype=torch.float64, device='cpu',  seed=121314):
+        super().__init__("Trid", d, dtype, device,   seed)
+        self.bounds = torch.tensor([[-d**2, d**2] for _ in range(d)], device=device, dtype=dtype)
+        self.min_f = - (d * (d + 4) * (d - 1)) / 6
+        x0 = torch.zeros((1, d), dtype=dtype, device=device)
+
+
+        self.x0 = x0 #torch.ones((1, self.d), dtype=self.dtype, device=self.device)
+    
+    def __call__(self, x):
+        term1 = (x - 1).square().sum(dim=1, keepdim=True)  
+        term2 = (x[:, 1:] * x[:, :-1]).sum(dim=1, keepdim=True)  
+        
+        return term1 - term2  # Compute function
+
+    def grad(self, x):
+        n, d = x.shape
+        grad = 2 * (x - 1)  
+        
+        grad[:, 0] -= x[:, 1]
+
+        grad[:, -1] -= x[:, -2]
+
+        if d > 2:
+            grad[:, 1:-1] -= x[:, :-2] + x[:, 2:]
+
+        return grad  # (n, d)
