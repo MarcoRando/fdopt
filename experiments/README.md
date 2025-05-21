@@ -67,8 +67,11 @@ python3 estimator_quality_cutest.py --out_dir ./results
 ``` 
 
 Arguments
+
 --out_dir (str): Output directory (default: './')
+
 --reps (int): Repetitions  (default: 50)
+
 --h (float): Finite difference step size (default: 1e-7)
 
 Then results can be plotted with the script "plot_cutest_results.py".
@@ -89,13 +92,21 @@ python3 convergence.py least_squares 500 --L 10000 --mu 1.0 --T 10000 --out_dir 
 ```
 
 Arguments
+
 fun_name (str): Name of the function to test.
+
 d (int): Dimensionality of the input space.
+
 --L (float): Smoothness parameter (default: 10000.0)
+
 --mu (float): Strong convexity (default: 1.0)
+
 --T (int): Number of function evaluations (default: 10000)
+
 --out_dir (str): Output directory (default: './')
+
 --reps (int): Repetitions for averaging (default: 50)
+
 --h (float): Finite difference discretization parameter (default: 1e-7)
 
 
@@ -116,8 +127,12 @@ python3 convergence_cutest.py --out_dir ./results
 ``` 
 
 Arguments
+
+
 --out_dir (str): Output directory (default: './')
+
 --reps (int): Repetitions  (default: 50)
+
 --h (float): Finite difference step size (default: 1e-7)
 
 Then results can be plotted with the script "plot_cutest_results.py".
@@ -137,8 +152,11 @@ python3 adv_exp.py ./results 10 'qr'
 ```
 
 Arguments
+
 out_dir (str): Output directory (default: './')
+
 reps (int): Repetitions  (default: 50)
+
 method (str): Direction generator (e.g. 'qr', 'householder', 'coordinate', 'butterfly', 'permuted_householder', 'spherical', 'gaussian', 'rademacher')
 
 Then results can be plotted with the script "plot_results.py". To plot the results you need to run the script "adv_exp.py" first for every direction generator.
