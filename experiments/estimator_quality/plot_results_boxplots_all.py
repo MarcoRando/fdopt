@@ -42,8 +42,8 @@ for (k, d) in enumerate(dimensions):
     ax = axes[k]
     data = pd.read_csv(f"{base_path}/grad_approx_error/noise_0.0/ffd/{fname}_{d}_1e-07.csv")
     print(data.head())
-    num_directions = [1, d//3, d//2, round(d * (4/5)), d] 
-    l_labels = ['1', 'd/3', 'd/2', '4/5 d', 'd']
+    num_directions =  [2, d//3, d//2, round(d * (4/5)), d]  
+    l_labels = ['2', 'd/3', 'd/2', '4/5 d', 'd']
     print(f"[++] Dimension d = {d}")
 
     for (i, l) in enumerate(num_directions):

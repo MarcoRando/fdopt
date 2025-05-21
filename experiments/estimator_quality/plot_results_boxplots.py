@@ -33,8 +33,12 @@ elif fun_name == 'rosenbrock':
     fname = title = "Rosenbrock"
 elif fun_name == 'stib':
     fname = title = "StyblinskiTang"
-
-
+elif fun_name == 'rotated_hyper_ellipsoid':
+    fname = "RotatedHyperEllipsoid"
+    title = "Rotated Hyper-Ellipsoid"
+elif fun_name == 'griewank':
+    fname = "Griewank"
+    title = "Griewank"
 
 #d = int(sys.argv[3]) #dimensions[0]
 

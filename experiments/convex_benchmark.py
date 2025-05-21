@@ -154,10 +154,10 @@ class TridFunction(TargetFunction):
         self.min_f = - (d * (d + 4) * (d - 1)) / 6
         x0 = torch.zeros((1, d), dtype=dtype, device=device)
 
-        for i in range(d):
-            x0[0, i] = (i + 1) * (d - (i + 1) + 1)
+        # for i in range(d):
+        #     x0[0, i] = (i + 1) * (d - (i + 1) + 1)
 
-        x0 *= 0.1
+        # x0 *= 0.1
 
         self.x0 = x0 #torch.ones((1, self.d), dtype=self.dtype, device=self.device)
     

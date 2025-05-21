@@ -19,6 +19,8 @@ reps = int(sys.argv[3])
 
 out_dir = sys.argv[4]
 
+#T = int(sys.argv[5])
+
 
 #data_dir = "./convergence/ris/convergence/noise_0.0/ffd"
 method = 'ffd' 
@@ -74,6 +76,22 @@ elif fun_name == 'dixon_price':
   title = "Dixon Price"
   file_name = "DixonPrice"
   out_name = 'dixon_price'
+elif fun_name == 'sum_of_powers':
+  title = "Sum of Powers"
+  file_name = "SumOfPowers"
+  out_name = 'sum_of_powers'
+elif fun_name == 'sum_of_squares':
+  title = "Sum of Squares"
+  file_name = "SumOfSquares"
+  out_name = 'sum_of_squares'
+elif fun_name == 'rotated_hyper_ellipsoid':
+  title = "Rotated Hyper-Ellipsoid"
+  file_name = "RotatedHyperEllipsoid"  
+  out_name = 'rotated_hyper_ellipsoid'
+elif fun_name == 'griewank':
+  title = "Griewank"
+  file_name = "Griewank"
+  out_name = 'griewank'
 
 num_directions = [2, d//3, d//2, round((4/5) * d),  d] #[1, d//2, round((2/3) * d), round((4/5) * d), d ]
 num_dirs_label = ["2", "d/3", "d/2",  "4/5 d",  'd'] #["1", "d/2", "2/3 d", "4/5 d",  'd']
@@ -98,7 +116,7 @@ for i in range(len(num_directions)):
       elif fun_name == 'least_squares':
         vals, _, f_0,  min_f = read_result(f"{data_dir}/LeastSquares_10000.0_1.0_{d}_{dir_type}_{num_directions[i]}_1e-07_{r}.csv")
       elif fun_name == 'sparse_sum':
-        s = int(sys.argv[3])
+        s = int(sys.argv[5])
         vals, _, f_0,  min_f = read_result(f"{data_dir}/SparseSum_{s}_{d}_{dir_type}_{num_directions[i]}_1e-07_{r}.csv")
       else:
         vals, _, f_0,  min_f = read_result(f"{data_dir}/{file_name}_{d}_{dir_type}_{num_directions[i]}_1e-07_{r}.csv")
@@ -109,6 +127,7 @@ for i in range(len(num_directions)):
     
     mu_vals = np.mean(values, axis=0)
     std_vals = np.std(values, axis=0) #- 
+#    std_vals[std_vals < 1e-10] = 0.0
     print(dir_type, num_directions[i], mu_vals[-1], std_vals[-1])
     ax.plot(range(len(mu_vals)), mu_vals, '-', lw=3, label=dir_type.replace("_", " "), c=colors[dir_id], rasterized=True) 
     ax.fill_between(range(len(mu_vals)), mu_vals - std_vals, mu_vals + std_vals, alpha=0.3, color=colors[dir_id], rasterized=True)

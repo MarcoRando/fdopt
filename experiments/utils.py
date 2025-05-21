@@ -43,6 +43,14 @@ def get_target_function(target_name):
         return StyblinskiTangFunction
     elif target_name == 'dixon_price':
         return ZakharovFunction
+    elif target_name == 'sum_of_powers':
+        return SumOfPowers
+    elif target_name == 'sum_of_squares':
+        return SumOfSquares
+    elif target_name == 'rotated_hyper_ellipsoid':
+        return RotatedHyperEllipsoid
+    elif target_name == 'griewank':
+        return GriewankFunction
     raise Exception(f"Unknown target name: {target_name}")
 
 direction_mapping = {
