@@ -6,7 +6,6 @@ from typing import Callable, Any, Tuple
 from fdopt.optimizers.opt import Optimizer
 from fdopt.direction_generators import DirectionGenerator
 from fdopt.grad_estimators import GradEstimator
-from fdopt.stepsize import Stepsize
 
 
 class FDOpt:
@@ -14,12 +13,12 @@ class FDOpt:
     def __init__(self, 
                  P : DirectionGenerator,
                  g : GradEstimator,
-                 gamma : Callable[[int, float, torch.Tensor], float] | Stepsize | float, 
+                 gamma : Callable[[int, float, torch.Tensor], float]  | float, 
                  h : Callable[[Any], float] | float
                  ) -> None:
         self.P = P
         self.g = g
-        self.gamma = gamma if isinstance(gamma, Callable) or isinstance(gamma, Stepsize) else lambda t,f,g : gamma
+        self.gamma = gamma if isinstance(gamma, Callable) else lambda t,f,g : gamma
         self.h = h if isinstance(h, Callable) else lambda t : h
         
                 
