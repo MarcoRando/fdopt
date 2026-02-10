@@ -66,13 +66,17 @@ def relative_error(g, grad):
 def compute_error_time(fun, x, g, P, h, reps = 10):
     errors, times = [], []
     _ = g(fun, x, h = h, P = P()) # if x.shape[0] > 1 else
+    
     for i in range(reps):
         grad = fun.grad(x).flatten()
-        torch.cuda.synchronize() 
+        if x.device == 'cuda':
+            torch.cuda.synchronize() 
         it_time = time.time()
         P_inst = P()
         g_x = g(fun, x,  h = h, P = P_inst)
-        torch.cuda.synchronize() 
+    
+        if x.device == 'cuda':
+            torch.cuda.synchronize()
         it_time = time.time() - it_time
         
         rel_err = relative_error(g_x, grad).item()

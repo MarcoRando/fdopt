@@ -34,7 +34,7 @@ transform = transforms.Compose([
 ])
 batch_size=128
 seed = 12131415
-device = 'cuda'
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
 dtype = torch.float64
 generator = torch.Generator(device=device).manual_seed(seed)
 

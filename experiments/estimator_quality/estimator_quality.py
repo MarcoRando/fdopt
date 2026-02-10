@@ -32,7 +32,7 @@ def run_experiment(args):
     fun_name = args.fun_name
     base_dir = args.out_dir
     dtype = torch.float64
-    device = 'cuda'
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
     seed = 12131419
 
     d = args.d
