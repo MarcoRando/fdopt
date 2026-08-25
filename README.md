@@ -18,7 +18,7 @@ conda activate fdopt
 
 Clone the repository
 ```bash
-git clone https://github.com/Akatsuki96/fdopt.git
+git clone https://github.com/MarcoRando/fdopt.git
 cd fdopt
 ```
 
