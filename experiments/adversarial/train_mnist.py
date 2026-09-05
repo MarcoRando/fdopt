@@ -137,7 +137,7 @@ train_temp = 100
 batch_size = 32
 patience = 5
 dtype = torch.float64
-device = 'cuda'
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
         
 t_tr, t_vl, s_tr, s_vl = train_distillation(num_epochs=num_epochs, train_temp=train_temp, batch_size=batch_size, patience=patience, dtype=dtype, device=device)
 

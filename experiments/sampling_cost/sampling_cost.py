@@ -20,19 +20,23 @@ matrices = [
     ("qr", QRDirections),
 ]
 
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
+
+
 def compute_cost(matrix_generator, reps=10):
     matrix_generator()
     time_costs = []
     for _ in range(reps):
-        torch.cuda.synchronize()
+        if device == 'cuda':
+            torch.cuda.synchronize()
         it_time = time.time()
         matrix_generator()
-        torch.cuda.synchronize()
+        if device == 'cuda':
+            torch.cuda.synchronize()
         it_time = time.time() - it_time
         time_costs.append(it_time)
     return np.mean(time_costs), np.std(time_costs)
 
-device = 'cuda'
 seed = 12341567
 dtype = torch.float64
 

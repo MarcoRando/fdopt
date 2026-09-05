@@ -1,7 +1,7 @@
 # FDOpt
 
 Code used to perform the experiments of the paper "A Structured Tour of Optimization with Finite Differences"
----
+
 
 ## :package: Installation
 
@@ -15,6 +15,12 @@ conda activate fdopt
 ```
 
 ### 2. Install the library
+
+Clone the repository
+```bash
+git clone https://github.com/MarcoRando/fdopt.git
+cd fdopt
+```
 
 Install the library from the local source using `pip`:
 

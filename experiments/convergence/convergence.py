@@ -31,7 +31,7 @@ methods = {
 
 
 dtype = torch.float64
-device = 'cuda'
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
 seed = 12131419
 
 def run_experiment(args):
