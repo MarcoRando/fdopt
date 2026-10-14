@@ -1,9 +1,24 @@
-# Experiments
+# :test_tube: Experiments
 
-Here we report the instructions to reproduce the experiments of the paper "A Structured Tour of Optimization with Finite Differences"
+Here we report the instructions to reproduce the experiments of the paper "A Structured Tour of Optimization with Finite Differences".
 
+## :wrench: Setup
 
-## Computational cost
+The experiments were conducted using the following versions of the libraries required by `fdopt` and for plotting:
+
+- PyTorch: 2.0.1
+- Python: 3.10.11
+- NumPy: 1.24.3
+- Matplotlib: 3.7.1
+
+To facilitate reproducibility, we provide the Conda environment used to run the experiments in `experiment_environment.yml`. To create and activate the environment, run the following commands:
+
+```bash
+conda env create -f experiment_environment.yml
+conda activate fdopt
+```
+
+## :stopwatch: Computational cost
 
 In "sampling_cost" folder, run the script "sampling_cost.py" with the desired number of repetitions and indicating the path where the results should be saved.
 ```bash
@@ -14,7 +29,7 @@ The script will generate a file "cost_generating_matrices.csv" in the specified 
 python plot_cost.py <path_to_file>
 ```
 
-## Gradient approximation error
+## :triangular_ruler: Gradient approximation error
 
 In "estimator_quality" folder, run the script "estimator_quality.py". The script estimator_quality.py evaluates the accuracy of gradient estimators on synthetic functions.
 
@@ -81,7 +96,7 @@ Example
 python3 plot_cutest_results.py ./results/grad_approx_error/ffd/cutest/
 ```
 
-## Convergence
+## :chart_with_downwards_trend: Convergence
 
 To run the experiments on convergence, run the script "convergence.py". 
 
@@ -142,7 +157,7 @@ Example
 python3 plot_cutest_results.py ./results/grad_approx_error/ffd/cutest/
 ```
 
-## Adversarial
+## :shield: Adversarial
 
 To run the experiments on adversarial examples, run the script "adv_exp.py".
 
