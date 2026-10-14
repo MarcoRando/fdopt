@@ -9,5 +9,5 @@ setup(
         'setuptools>=18.0'
     ],
     packages=find_packages(),
-    install_requires=['numpy==1.24.3', 'tqdm', 'matplotlib', 'pandas']
+    install_requires=['numpy', 'tqdm', 'matplotlib', 'pandas']
 )
