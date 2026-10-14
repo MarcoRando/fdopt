@@ -7,8 +7,20 @@ import json
 import math
 import os
 
+# Everything is located relative to this directory, so the suite works wherever it is placed
+# (e.g. a `cost_analysis/` folder inside a larger repository) and from any working directory.
+HERE = os.path.dirname(os.path.abspath(__file__))
+RESULTS_DIR = os.path.join(HERE, "results")
+FIGURES_DIR = os.path.join(HERE, "figures")
+
+
+def default_out(name):
+    return os.path.join(RESULTS_DIR, name)
+
+
 NAN = float("nan")
-STAT_KEYS = ("median", "p05", "p25", "p75", "p95", "min", "max")
+STAT_KEYS = ("mean", "std", "median", "p05", "p25", "p75", "p95", "min", "max")
+SHORT_KEYS = ("mean", "std", "median", "p25", "p75")
 _Q = {"p05": 0.05, "p25": 0.25, "median": 0.5, "p75": 0.75, "p95": 0.95}
 
 
@@ -27,10 +39,16 @@ def percentile(values, q):
 
 
 def stats(values, prefix="time", keys=STAT_KEYS):
-    """Summary of repeated measurements as flat columns: <prefix>_median, _p05, _p25, ..."""
+    """Summary of repeated measurements as flat columns: <prefix>_mean, _std, _median, _p05, _p25, ..."""
     out = {}
+    n = len(values)
+    mean = sum(values) / n if n else NAN
     for k in keys:
-        if k == "min":
+        if k == "mean":
+            out[f"{prefix}_{k}"] = mean
+        elif k == "std":      # sample standard deviation (n - 1); undefined for a single repetition
+            out[f"{prefix}_{k}"] = math.sqrt(sum((v - mean) ** 2 for v in values) / (n - 1)) if n > 1 else NAN
+        elif k == "min":
             out[f"{prefix}_{k}"] = min(values) if values else NAN
         elif k == "max":
             out[f"{prefix}_{k}"] = max(values) if values else NAN
@@ -43,24 +61,23 @@ def _s(prefix, keys=STAT_KEYS):
     return {f"{prefix}_{k}": NAN for k in keys}
 
 
-_IQR = ("median", "p25", "p75")
-
 # None  -> field is required in make_row; any other value is the default.
 SCHEMAS = {
     "exp1": {"method": None, "family": None, "dtype": None, "d": None, "l": None, **_s("time"),
-             "reps": 0, "peak_bytes": -1, "persistent_bytes": -1, "orth_err": NAN, "status": "ok"},
+             **_s("peak_bytes"), **_s("persistent_bytes"), "reps": 0, "orth_err": NAN, "status": "ok"},
     "exp2": {"method": None, "family": None, "part": None, "dtype": None, "d": None, "l": None, "batch": None,
-             **_s("time"), "reps": 0, "peak_bytes": -1, "persistent_bytes": -1, "status": "ok"},
+             **_s("time"), **_s("peak_bytes"), **_s("persistent_bytes"),
+             **_s("build_peak_bytes"), **_s("build_retained_bytes"), "reps": 0, "status": "ok"},
     "exp3": {"method": None, "family": None, "dtype": None, "d": None, "l": None, "batch": None, **_s("time"),
-             "reps": 0, "peak_bytes": -1, "persistent_bytes": -1, "rel_err": NAN, "status": "ok"},
+             **_s("peak_bytes"), **_s("persistent_bytes"), "reps": 0, "rel_err": NAN, "status": "ok"},
     "exp4": {"method": None, "family": None, "dtype": None, "d": None, "l": None, "batch": None, "cost": None,
-             **_s("t_est"), **_s("t_f", _IQR), **_s("t_dir", _IQR), "dir_frac": NAN, "reps": 0, "status": "ok"},
+             **_s("t_est"), **_s("t_f", SHORT_KEYS), **_s("t_dir", SHORT_KEYS), "dir_frac": NAN, "reps": 0, "status": "ok"},
     "exp5": {"method": None, "family": None, "dtype": None, "budget_gb": None, "batch": None, "max_d": 0},
     "exp6": {"family": None, "cache": None, "part": None, "dtype": None, "d": None, "l": None, "batch": None,
-             **_s("time"), "reps": 0, "peak_bytes": -1, "persistent_bytes": -1, "status": "ok"},
+             **_s("time"), **_s("peak_bytes"), **_s("persistent_bytes"), "reps": 0, "status": "ok"},
     "exp7": {"method": None, "family": None, "dtype": None, "d": None, "l": None, "batch": None, "cost": None,
-             "iters": None, **_s("time"), "reps": 0, "peak_bytes": -1, "f_ratio": NAN, "linesearch": "none",
-             "n_evals": NAN, "status": "ok"},
+             "iters": None, **_s("time"), **_s("peak_bytes"), **_s("persistent_bytes"), "reps": 0, "f_ratio": NAN,
+             "linesearch": "none", "n_evals": NAN, "status": "ok"},
 }
 
 
@@ -114,11 +131,14 @@ def write_json(path, obj):
         json.dump(obj, fh, indent=2, default=str)
 
 
-def footprint(r):
-    """Persistent operator bytes + transient peak bytes of a row (-1 if memory was not measured, e.g. CPU)."""
-    if r.get("peak_bytes", -1) < 0:
+def footprint(r, stat="median"):
+    """Persistent operator bytes + transient peak bytes of a row, for the chosen summary statistic
+    ("median", "mean", "p95", ...). -1 if memory was not measured (CPU)."""
+    p = r.get(f"peak_bytes_{stat}", NAN)
+    if not (p == p):
         return -1
-    return r["peak_bytes"] + max(r.get("persistent_bytes", 0), 0)
+    pers = r.get(f"persistent_bytes_{stat}", NAN)
+    return p + (max(pers, 0) if pers == pers else 0)
 
 
 def select_best(rows, dtype, d, l, slack=4.0, family=None, method="implicit", part="both"):

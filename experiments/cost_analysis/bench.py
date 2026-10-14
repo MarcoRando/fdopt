@@ -6,7 +6,7 @@ import time
 
 import torch
 
-from results_utils import write_csv, write_json, stats  # noqa: F401  (re-exported for the experiment scripts)
+from results_utils import default_out, write_csv, write_json, stats  # noqa: F401  (re-exported for the experiment scripts)
 
 DTYPES = {"float64": torch.float64, "float32": torch.float32}
 
@@ -46,58 +46,84 @@ def time_reps(fn, device, warmup=3, reps=20):
     return out
 
 
-def peak_mem(fn, device, reset=None):
-    """Peak extra GPU bytes allocated by one call of fn, relative to the allocations present before the call.
+def peak_mem_reps(fn, device, reset=None):
+    """Peak extra GPU bytes of ONE call of fn, as a one-element list ([] on CPU, where it is not measured).
 
-    `reset` (e.g. op.release) is called first so previously sampled directions are not counted as present.
-    Operator state created in the constructor is reported separately by `persistent_bytes`.
-    Returns -1 on CPU.
+    Memory use is deterministic, so a single measurement is enough. `reset` (e.g. op.release) drops the previously
+    sampled directions, the cache is emptied, the bytes allocated before the call are noted, the peak counter is
+    reset, fn runs, and peak = torch.cuda.max_memory_allocated() - bytes present before. Operator state created in
+    the constructor is reported separately by `persistent_bytes`.
     """
     if not is_cuda(device):
-        return -1
+        return []
     if reset is not None:
         reset()
     sync(device)
     torch.cuda.empty_cache()
     base = torch.cuda.memory_allocated()
     torch.cuda.reset_peak_memory_stats()
-    out = fn()
+    res = fn()
     sync(device)
     peak = torch.cuda.max_memory_allocated() - base
-    del out
-    return peak
+    del res
+    return [peak]
 
 
 def persistent_bytes(build, device):
-    """(build(), bytes allocated by build()); bytes = -1 on CPU."""
+    """(obj, [bytes allocated by build()]); the list is [] on CPU. One measurement (memory is deterministic)."""
     if not is_cuda(device):
-        return build(), -1
+        return build(), []
+    cleanup(device)
     sync(device)
     base = torch.cuda.memory_allocated()
     obj = build()
     sync(device)
-    return obj, torch.cuda.memory_allocated() - base
+    return obj, [torch.cuda.memory_allocated() - base]
+
+
+def build_mem(op, device):
+    """([peak], [retained]) extra CUDA bytes of ONE op.resample(); ([], []) on CPU.
+
+    peak     = transient maximum while the directions are built
+    retained = bytes still held afterwards (explicit: the l x d matrix; implicit: indices / v / seed)"""
+    if not is_cuda(device):
+        return [], []
+    op.release()
+    sync(device)
+    torch.cuda.empty_cache()
+    base = torch.cuda.memory_allocated()
+    torch.cuda.reset_peak_memory_stats()
+    op.resample()
+    sync(device)
+    peak = torch.cuda.max_memory_allocated() - base
+    kept = torch.cuda.memory_allocated() - base
+    op.release()
+    return [peak], [kept]
+
+
+def build_measured(row, build, a):
+    obj, vals = persistent_bytes(build, a.device)
+    row.update(stats(vals, "persistent_bytes"))
+    return obj
 
 
 def measure(row, fn, a, reset=None, prefix="time", memory=True):
-    """Time fn over a.reps repetitions (after a.warmup), store median/percentile columns (+ peak memory) in row."""
     times = time_reps(fn, a.device, a.warmup, a.reps)
     row.update(stats(times, prefix))
     row["reps"] = len(times)
     if memory:
-        row["peak_bytes"] = peak_mem(fn, a.device, reset)
+        row.update(stats(peak_mem_reps(fn, a.device, reset), "peak_bytes"))
     return times
 
 
 def record(a, rows, row):
-    """Append a row, echo it, and checkpoint the CSV so a crash on a long GPU run loses nothing."""
     rows.append(row)
     print(row, flush=True)
     write_csv(a.out, rows)
 
 
 def l_grid(d):
-    return sorted({v for v in (1, 10, 100, 1000, 10000, d // 2, d) if 1 <= v <= d})
+    return sorted({v for v in (2, d//5, d//3, d//2, int((2/3) * d), int((4/5) * d), d)})
 
 
 def is_oom(exc):
@@ -106,11 +132,26 @@ def is_oom(exc):
 
 def add_common(ap, out):
     ap.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
-    ap.add_argument("--dims", type=int, nargs="+", default=[1000, 4000, 10000])
+    ap.add_argument("--dims", type=int, nargs="+", default=[500, 1000, 5000, 10000])
     ap.add_argument("--dtypes", nargs="+", default=["float64", "float32"], choices=list(DTYPES))
     ap.add_argument("--warmup", type=int, default=3)
     ap.add_argument("--reps", type=int, default=20, help="timed repetitions per configuration")
     ap.add_argument("--out", default=out)
+    ap.add_argument("--shard", type=int, default=0, help="index of this worker (0 .. nshards-1)")
+    ap.add_argument("--nshards", type=int, default=1, help="split the job list over this many processes")
+
+
+def init_shard(a):
+    if a.nshards > 1:
+        stem, ext = os.path.splitext(a.out)
+        a.out = f"{stem}.shard{a.shard}of{a.nshards}{ext}"
+    counter = [0]
+
+    def mine():
+        k = counter[0]
+        counter[0] += 1
+        return k % a.nshards == a.shard
+    return mine
 
 
 def randn_x(d, dtype, device, seed=0):
@@ -147,9 +188,13 @@ def env_info(a=None, extra=None):
         allocations_included=("yes: allocating/generating the directions (resample) is inside the timed region of "
                               "'ask', 'both', the generation and the estimator/iteration experiments; "
                               "'tell' times accumulation only, with directions generated beforehand"),
-        memory=("peak_bytes = peak extra CUDA bytes of one call (torch.cuda.max_memory_allocated minus bytes present "
-                "before the call, previously sampled directions released); persistent_bytes = bytes allocated by "
-                "the operator constructor; footprint = peak_bytes + persistent_bytes"),
+        memory=("CUDA only, each quantity measured ONCE (memory use is deterministic). persistent_bytes = bytes "
+                "allocated by the operator constructor; build_peak_bytes / build_retained_bytes = transient peak / "
+                "bytes kept by one resample() (explicit: building the l x d matrix; implicit: indices, v, seed); "
+                "peak_bytes = peak extra bytes (torch.cuda.max_memory_allocated minus bytes present before) of one "
+                "call of the measured function (implicit: computing the action; estimator experiments: the whole "
+                "estimator); footprint = peak + persistent. Columns keep the *_mean/_median/... names with a "
+                "single sample. NaN on CPU."),
         seeds="operators seeded with 121212, evaluation point with seed 0; the operator RNG advances across repetitions",
     )
     if torch.cuda.is_available():
