@@ -6,7 +6,7 @@ SEED = 121212
 IID = {"gaussian", "rademacher"}
 ORTHOGONAL = {"coordinate", "qr", "householder", "permuted_householder", "butterfly"}
 VARIANTS = {
-    "qr_reorth": ("qr", {"reorth": 1}),
+#    "qr_reorth": ("qr", {"reorth": 1}),
     "qr_f32_reorth": ("qr", {"reorth": 1, "gen_dtype": torch.float32}),
 }
 BASE_FAMILIES = ["coordinate", "qr", "householder", "permuted_householder", "butterfly",
