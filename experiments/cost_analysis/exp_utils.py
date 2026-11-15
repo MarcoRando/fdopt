@@ -1,9 +1,3 @@
-"""Full-matrix (explicit) constructions of the direction families, used ONLY by the experiments.
-
-`ExplicitOperator` has the same interface as the library operators (resample / perturb / accumulate / finalize /
-norm_const / d / l), so `fd.FFD` runs on it unchanged: the whole l x d matrix is built in `resample()` and sliced.
-`generate()` builds one matrix (what Experiment 1 times).  Families: the library ones plus Haar/QR and QR variants.
-"""
 from math import floor, log2, pi
 
 import torch
@@ -46,16 +40,16 @@ def _haar_q(A):
 
 
 class ExplicitOperator:
-    def __init__(self, name, d, l=1, dtype=torch.float64, device="cpu", seed=SEED, label=None,
-                 store_identity=True, reorth=0, gen_dtype=None):
+    def __init__(self, name, d, l=1, dtype=torch.float64, device="cpu", seed=SEED, label=None, 
+                 reorth=0, gen_dtype=None):
         self.name, self.label = name, label or name
         self.d, self.l, self.dtype, self.device = d, l, dtype, device
         self.generator = torch.Generator(device=device).manual_seed(seed)
-        self.store_identity, self.reorth, self.gen_dtype = store_identity, reorth, gen_dtype
+        self.reorth, self.gen_dtype = reorth, gen_dtype
         self.P = None
         self.I = None
-        if name == "coordinate" and store_identity:
-            self.I = torch.eye(d, dtype=dtype, device=device)
+#        if name == "coordinate" and store_identity:
+#            self.I = torch.eye(d, dtype=dtype, device=device)
         if name == "householder":
             self.I = torch.eye(d, l, dtype=dtype, device=device)
         self.generate = getattr(self, f"_gen_{name}")
@@ -103,11 +97,11 @@ class ExplicitOperator:
         return f"Explicit_{self.label}_{self.d}_{self.l}"
 
     def _gen_coordinate(self):
-        if self.store_identity and self.l == self.d:
-            return self.I
+#        if self.store_identity and self.l == self.d:
+#            return self.I
         inds = torch.randperm(self.d, generator=self.generator, device=self.device)[: self.l]
-        if self.store_identity:
-            return self.I[inds, :]
+#        if self.store_identity:
+#            return self.I[inds, :]
         P = torch.zeros((self.l, self.d), dtype=self.dtype, device=self.device)
         P[self._ar(self.l), inds] = 1.0
         return P

@@ -1,15 +1,3 @@
-"""Direction operators for finite-difference gradient estimation (implicit application only).
-
-A directions object represents P in R^{l x d} (rows = directions) through its ACTION; the matrix is never built
-(chunks of at most b rows are, for families without a cheaper closed form).
-
-Interface used by `fd.FFD`:
-    resample()                  draw a new set of l directions (O(d) state)
-    perturb(x, h, a, e)         (e-a, d) points x + h * P[a:e]
-    accumulate(g, s, a, e)      g += s @ P[a:e]   (g is (d,) or (1, d), contiguous, updated in place)
-    finalize(g)                 call once after the last accumulate of an estimator (deferred rank-one / butterfly work)
-    release()                   drop the sampled state
-"""
 from math import floor, log2, pi
 
 import torch
@@ -27,13 +15,20 @@ def _spherical(n, d, gen, dtype, device):
 
 
 def _rademacher(n, d, gen, dtype, device):
-    B = torch.randint(0, 2, (n, d), dtype=torch.int8, generator=gen, device=device)
-    return (2 * B - 1).to(dtype)
+    P = torch.empty(n, d, dtype=dtype, device=device).random_(0, 2, generator=gen)
+    return P.mul_(2).sub_(1)
 
 
 def _unit_vector(d, gen, dtype, device):
     v = torch.randn(d, generator=gen, dtype=dtype, device=device)
     return v / torch.linalg.norm(v)
+
+
+def _haar_q(A):
+    H, tau = torch.geqrf(A)
+    Q = torch.linalg.householder_product(H, tau)
+    return Q * torch.where(H.diagonal() >= 0, 1.0, -1.0).to(Q.dtype)
+
 
 
 class Operator:
@@ -122,6 +117,34 @@ class Householder(Operator):
         if self._alpha is not None:
             g.view(-1).sub_((2.0 * self._alpha) * self.v)
             self._alpha = None
+
+
+class QRDirections(Operator):
+    orthogonal = True
+
+    def __init__(self, d, l=1, dtype=torch.float64, device="cpu", seed=SEED, reorth=0, gen_dtype=None):
+        super().__init__(d, l, dtype, device, seed)
+        self.reorth, self.gen_dtype = reorth, gen_dtype
+        self.P = None
+
+    def resample(self):
+        self.P = None
+        gd = self.gen_dtype or self.dtype
+        Q = _haar_q(torch.randn(self.d, self.l, generator=self.generator, dtype=gd, device=self.device))
+        for _ in range(self.reorth):
+            Q = _haar_q(Q)
+        self.P = Q.T.to(self.dtype).contiguous()
+
+    def perturb(self, x, h, a, e):
+        return torch.add(x, self.P[a:e], alpha=h)
+
+    def accumulate(self, g, s, a, e):
+        g.view(-1).add_(s @ self.P[a:e])
+
+    def release(self):
+        super().release()
+        self.P = None
+
 
 
 class PermutedHouseholder(Operator):

@@ -1,10 +1,3 @@
-"""Exp 1 -- direction generation only (explicit full matrix), per dtype.
-
-Answers: how expensive is the Haar/QR matrix in float32 vs float64, and does re-orthogonalising a float32
-matrix (and casting to double) fix the orthogonality loss?  `qr_reorth` = one extra QR pass in the working dtype,
-`qr_f32_reorth` = QR in float32, a second QR pass in float32, cast to float64 (only run for dtype float64).
-Explicit matrices come from exp_utils (the library only applies directions implicitly).
-"""
 import argparse
 
 import torch
