@@ -132,7 +132,7 @@ def is_oom(exc):
 
 def add_common(ap, out):
     ap.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
-    ap.add_argument("--dims", type=int, nargs="+", default=[500, 1000, 5000, 10000])
+    ap.add_argument("--dims", type=int, nargs="+", default=[500, 5000, 10000])
     ap.add_argument("--dtypes", nargs="+", default=["float64", "float32"], choices=list(DTYPES))
     ap.add_argument("--warmup", type=int, default=3)
     ap.add_argument("--reps", type=int, default=20, help="timed repetitions per configuration")
