@@ -24,8 +24,9 @@ def _spherical(n, d, gen, dtype, device):
 
 
 def _rademacher(n, d, gen, dtype, device):
-    B = torch.randint(0, 2, (n, d), dtype=torch.int8, generator=gen, device=device)
-    return (2 * B - 1).to(dtype)
+    P = torch.empty(n, d, dtype=dtype, device=device).random_(0, 2, generator=gen)
+    return P.mul_(2).sub_(1)
+
 
 
 def _unit_vector(d, gen, dtype, device):

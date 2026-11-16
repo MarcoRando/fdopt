@@ -22,9 +22,9 @@ import matplotlib.pyplot as plt  # noqa: E402
 from results_utils import FIGURES_DIR, RESULTS_DIR, read_csv  # noqa: E402
 
 NAN = float("nan")
-ORDER = ["coordinate", "qr", "qr_reorth", "qr_f32_reorth", "householder", "permuted_householder", "butterfly",
-         "gaussian", "spherical", "rademacher"]
-# seaborn "colorblind" palette (hard-coded so that seaborn itself is not needed) + one marker per family
+
+ORDER = ["gaussian", "spherical", "rademacher", "coordinate", "qr", "qr_reorth", "qr_f32_reorth", "householder", "permuted_householder", "butterfly"]
+
 PALETTE = ["#0173b2", "#de8f05", "#029e73", "#d55e00", "#cc78bc", "#ca9161", "#fbafe4", "#949494", "#ece133", "#56b4e9"]
 COLOR = {f: PALETTE[i] for i, f in enumerate(ORDER)}
 MARKER = {f: m for f, m in zip(ORDER, "osD^vP*X<>")}
