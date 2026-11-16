@@ -1,6 +1,7 @@
 # Custom
 *.pdf
 *.out
+*.csv
 ZO-BCD/
 ZORO/
 */cutest/*
