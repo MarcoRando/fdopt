@@ -32,7 +32,7 @@ def cleanup(device):
 
 
 def time_reps(fn, device, warmup=3, reps=20):
-    """Per-repetition wall-clock times (seconds): `warmup` untimed calls, then `reps` individually timed calls."""
+
     for _ in range(warmup):
         fn()
     sync(device)
@@ -48,13 +48,7 @@ def time_reps(fn, device, warmup=3, reps=20):
 
 
 def peak_mem_reps(fn, device, reset=None):
-    """Peak extra GPU bytes of ONE call of fn, as a one-element list ([] on CPU, where it is not measured).
 
-    Memory use is deterministic, so a single measurement is enough. `reset` (e.g. op.release) drops the previously
-    sampled directions, the cache is emptied, the bytes allocated before the call are noted, the peak counter is
-    reset, fn runs, and peak = torch.cuda.max_memory_allocated() - bytes present before. Operator state created in
-    the constructor is reported separately by `persistent_bytes`.
-    """
     if not is_cuda(device):
         return []
     if reset is not None:
@@ -71,7 +65,7 @@ def peak_mem_reps(fn, device, reset=None):
 
 
 def persistent_bytes(build, device):
-    """(obj, [bytes allocated by build()]); the list is [] on CPU. One measurement (memory is deterministic)."""
+
     if not is_cuda(device):
         return build(), []
     cleanup(device)
@@ -83,10 +77,7 @@ def persistent_bytes(build, device):
 
 
 def build_mem(op, device):
-    """([peak], [retained]) extra CUDA bytes of ONE op.resample(); ([], []) on CPU.
 
-    peak     = transient maximum while the directions are built
-    retained = bytes still held afterwards (explicit: the l x d matrix; implicit: indices / v / seed)"""
     if not is_cuda(device):
         return [], []
     op.release()
@@ -165,7 +156,7 @@ def f_quadratic(X):
 
 
 def make_f(r):
-    """Objective whose cost grows with r (r tanh sweeps over the batch); r = 0 is the plain quadratic."""
+
     def f(X):
         Z = X.clone()
         for _ in range(r):
@@ -175,7 +166,7 @@ def make_f(r):
 
 
 def env_info(a=None, extra=None):
-    """Everything the reviewers asked to be reported about the measurement setup."""
+
     info = dict(
         implementation_language="Python",
         python=platform.python_version(),

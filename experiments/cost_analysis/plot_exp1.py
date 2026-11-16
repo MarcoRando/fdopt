@@ -23,12 +23,26 @@ from results_utils import FIGURES_DIR, RESULTS_DIR, read_csv  # noqa: E402
 
 NAN = float("nan")
 
-ORDER = ["gaussian", "spherical", "rademacher", "coordinate", "qr", "qr_reorth", "qr_f32_reorth", "householder", "permuted_householder", "butterfly"]
+ORDER = ["gaussian", "spherical", "rademacher", "coordinate", "qr", "qr_f32_reorth", "householder", "permuted_householder", "butterfly"]
 
 PALETTE = ["#0173b2", "#de8f05", "#029e73", "#d55e00", "#cc78bc", "#ca9161", "#fbafe4", "#949494", "#ece133", "#56b4e9"]
-COLOR = {f: PALETTE[i] for i, f in enumerate(ORDER)}
-MARKER = {f: m for f, m in zip(ORDER, "osD^vP*X<>")}
+COLOR = {f: PALETTE[i] for i, f in enumerate(ORDER) if f != "qr_f32_reorth"}
+MARKER = {f: m for f, m in zip(ORDER, "osD^vP*X<>") if f != "qr_f32_reorth"}
 DTYPES = ["float64", "float32"]
+
+fam_to_label = {
+    "gaussian" : "gaussian", 
+    "spherical" : "spherical", 
+    "rademacher" : "rademacher", 
+    "coordinate" : "coordinate", 
+    "qr" : "qr", 
+    "qr_f32_reorth" : "qr [float32 + reorthogonalization]", 
+    "householder" : "householder", 
+    "permuted_householder" : "permuted householder", 
+    "butterfly" : "butterfly"
+}
+
+
 try:
     plt.style.use("seaborn-v0_8-whitegrid")
 except OSError:
@@ -38,7 +52,6 @@ plt.rcParams.update({"figure.dpi": 110, "font.size": 10, "axes.titlesize": 11, "
 
 
 def val(r, base, stat="median"):
-    """Value of a measurement: <base>_<stat> if the CSV has summary columns, else the scalar column <base>."""
     for k in (f"{base}_{stat}", base):
         v = r.get(k)
         if isinstance(v, (int, float)) and v == v:
@@ -60,7 +73,7 @@ def fmt_bytes(b):
 
 
 def footprint(r):
-    """Peak extra memory while building + memory held by the operator object (NaN if memory was not measured)."""
+
     p = val(r, "peak_bytes")
     if not (p == p):
         return NAN
@@ -77,7 +90,6 @@ def order(fams):
 
 
 def closest(rows, d, frac):
-    """Row with l closest to frac * d (None if rows is empty)."""
     return min(rows, key=lambda r: abs(r["l"] - frac * d)) if rows else None
 
 
@@ -97,10 +109,15 @@ def make_figure(rows, dims, fams, a):
                 med = [val(r, "time", "median") for r in rs]
                 lo = [max(m - val(r, "time", lo_s), 0.0) for m, r in zip(med, rs)]   # error-bar lengths below / above
                 hi = [max(val(r, "time", hi_s) - m, 0.0) for m, r in zip(med, rs)]
-                ax.errorbar(x, med, yerr=[lo, hi], marker=MARKER.get(fam, "o"), ms=5, lw=2, capsize=3, elinewidth=1.3,
-                            capthick=1.3, color=COLOR.get(fam), label=fam, zorder=3)
+
+                if fam == 'qr_f32_reorth':
+                    ax.errorbar(x, med, yerr=[lo, hi], marker=MARKER.get('qr', "o"), linestyle='--', ms=5, lw=2, capsize=3, elinewidth=1.3,
+                                capthick=1.3, color=COLOR.get("qr"), label=fam_to_label[fam], zorder=3)
+                else:
+                    ax.errorbar(x, med, yerr=[lo, hi], marker=MARKER.get(fam, "o"), ms=5, lw=2, capsize=3, elinewidth=1.3,
+                                capthick=1.3, color=COLOR.get(fam), label=fam_to_label[fam], zorder=3)
             ax.set(yscale="log", title=f"$d = {d}$")      # x axis stays linear
-            if j == 0:     # dtype label in a small box inside the first subplot of the row
+            if j == 0:    
                 ax.text(0.04, 0.95, dt, transform=ax.transAxes, ha="left", va="top", fontsize=11, zorder=5,
                         bbox=dict(boxstyle="round,pad=0.3", fc="white", ec="0.4", alpha=0.95))
             if not sel:
