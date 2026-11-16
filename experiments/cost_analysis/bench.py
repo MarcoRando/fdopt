@@ -39,10 +39,11 @@ def time_reps(fn, device, warmup=3, reps=20):
     out = []
     for _ in range(reps):
         sync(device)
-        t = time.perf_counter()
+        t = time.time()
         fn()
+        t = time.time() - t
         sync(device)
-        out.append(time.perf_counter() - t)
+        out.append(t)
     return out
 
 
