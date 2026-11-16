@@ -297,6 +297,7 @@ FAMILIES = {
     "gaussian": GaussianDirections,
     "spherical": SphericalDirections,
     "rademacher": RademacherDirections,
+    "qr" : QRDirections,
 }
 
 
