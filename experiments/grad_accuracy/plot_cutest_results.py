@@ -61,7 +61,7 @@ for i, ax in enumerate(axes):
         ax.set_ylabel(r"$\rho_{grad}(\tau)$", fontsize=15, labelpad=8)
 
 handles = [Line2D([0], [0], color=COLOR[t], lw=3, label=LABEL[t]) for t in direction_type]
-ncol = min(len(handles), 4)
+ncol = min(len(handles), 5)
 fig.tight_layout()
 fig.legend(handles=handles, loc="lower center", bbox_to_anchor=(0.5, -0.0), ncol=ncol,
            frameon=False, handlelength=1.5, fontsize=16)
