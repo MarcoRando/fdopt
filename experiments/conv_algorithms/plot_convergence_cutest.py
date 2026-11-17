@@ -26,11 +26,16 @@ plt.rcParams.update({"figure.dpi": 110, "font.size": 10, "axes.titlesize": 14, "
 
 base_dir = sys.argv[1]
 reps = int(sys.argv[2])
+table_path = sys.argv[3] if len(sys.argv) > 3 else "./frac_solved_table.tex"
 data_dir = f"{base_dir}/ffd/cutest"
 
 WANTED = ['spherical', 'gaussian', 'rademacher', 'coordinate', 'householder', 'butterfly', 'permuted_householder', 'qr']
 direction_type = [f for f in ORDER if f in WANTED]          # keep the global ordering
 num_dirs_label = ["2", "d/3", "d/2", "4d/5", "d"]
+
+UNSTRUCTURED = [t for t in direction_type if t in ('gaussian', 'spherical', 'rademacher')]
+STRUCTURED = [t for t in direction_type if t not in UNSTRUCTURED]
+TABLE_TAUS = [1e-13, 1e-10, 1e-7, 1e-4]
 
 
 def style_axes(axes, xlabel, ylabel):
@@ -42,11 +47,9 @@ def style_axes(axes, xlabel, ylabel):
 
 def save_with_legend(fig, path):
   handles = [Line2D([0], [0], color=COLOR[t], lw=3, label=LABEL[t]) for t in direction_type]
-#  fig.tight_layout() 
   ncol = min(len(handles), 5)
   fig.legend(handles=handles, loc="lower left", bbox_to_anchor=(0.0, 0.0, 1.0, 1.0), ncol=ncol,
            frameon=False, handlelength=2.5, fontsize=14, mode='expand', borderaxespad=0.2)
-#  fig.subplots_adjust(bottom=0.32)
   fig.tight_layout(rect=(0.0, 0.15, 1.0,1.0))
   fig.savefig(path, bbox_inches="tight")
   plt.close(fig)
@@ -192,3 +195,47 @@ for tau_idx in [0, 1, 2, 3, 4, 5]:
     ax.set_ylim([-0.01, 1.01])
   style_axes(axes, "# function evaluations", r"$\rho_{val}(\tau)$")
   save_with_legend(fig, f"./frac_solved_fvals_profile_cutest_{taus[tau_idx]}.pdf")
+
+
+print("[++] Writing LaTeX table (l = d)")
+
+# fraction of solved problems per method for l = d (last entry of num_directions), at the table taus
+L_IDX = len(num_directions) - 1
+frac = {}
+for dir_type in direction_type:
+  tests = [[] for _ in TABLE_TAUS]
+  for fun_key in min_values.keys():
+    min_val, init_val = min_values[fun_key], init_values[fun_key]
+    mu_values, _ = values[fun_key][dir_type][L_IDX]
+    best = np.min(mu_values)
+    if not np.all(np.isfinite([best, init_val, min_val])):
+      continue
+    ratio = (best - min_val + 1e-10) / (init_val - min_val + 1e-10)
+    for k, tau in enumerate(TABLE_TAUS):
+      tests[k].append(ratio <= tau)
+  frac[dir_type] = [np.mean(x) for x in tests]
+
+
+def cell(methods, k):
+  """mean +/- std (over the methods of the group) of the fraction of solved problems at TABLE_TAUS[k]."""
+  v = np.array([frac[m][k] for m in methods])
+  return rf"${v.mean():.2f} \pm {v.std():.2f}$"
+
+
+def tau_header(tau):
+  return rf"$\tau = 10^{{{int(round(np.log10(tau)))}}}$"
+
+
+lines = [r"\begin{tabular}{l" + "c" * len(TABLE_TAUS) + "}",
+         r"\toprule",
+         " & " + " & ".join(tau_header(t) for t in TABLE_TAUS) + r" \\",
+         r"\midrule"]
+for name, methods in (("Structured", STRUCTURED), ("Unstructured", UNSTRUCTURED)):
+  lines.append(name + " & " + " & ".join(cell(methods, k) for k in range(len(TABLE_TAUS))) + r" \\")
+lines += [r"\bottomrule", r"\end{tabular}"]
+
+table = "\n".join(lines)
+with open(table_path, "w") as f:
+  f.write(table + "\n")
+print(table)
+print(f"[++] Table written to {table_path}")
