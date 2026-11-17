@@ -199,26 +199,27 @@ for tau_idx in [0, 1, 2, 3, 4, 5]:
 
 print("[++] Writing LaTeX table (l = d)")
 
-# fraction of solved problems per method for l = d (last entry of num_directions), at the table taus
-L_IDX = len(num_directions) - 1
-frac = {}
-for dir_type in direction_type:
-  tests = [[] for _ in TABLE_TAUS]
-  for fun_key in min_values.keys():
-    min_val, init_val = min_values[fun_key], init_values[fun_key]
-    mu_values, _ = values[fun_key][dir_type][L_IDX]
-    best = np.min(mu_values)
-    if not np.all(np.isfinite([best, init_val, min_val])):
-      continue
-    ratio = (best - min_val + 1e-10) / (init_val - min_val + 1e-10)
-    for k, tau in enumerate(TABLE_TAUS):
-      tests[k].append(ratio <= tau)
-  frac[dir_type] = [np.mean(x) for x in tests]
+# fraction of solved problems per method and per l (all entries of num_directions), at the table taus
+# frac[l_idx][method] = [one value per tau in TABLE_TAUS]
+frac = [{} for _ in num_dirs_label]
+for L_IDX in range(len(num_dirs_label)):
+  for dir_type in direction_type:
+    tests = [[] for _ in TABLE_TAUS]
+    for fun_key in min_values.keys():
+      min_val, init_val = min_values[fun_key], init_values[fun_key]
+      mu_values, _ = values[fun_key][dir_type][L_IDX]
+      best = np.min(mu_values)
+      if not np.all(np.isfinite([best, init_val, min_val])):
+        continue
+      ratio = (best - min_val + 1e-10) / (init_val - min_val + 1e-10)
+      for k, tau in enumerate(TABLE_TAUS):
+        tests[k].append(ratio <= tau)
+    frac[L_IDX][dir_type] = [np.mean(x) for x in tests]
 
 
-def cell(methods, k):
+def cell(l_idx, methods, k):
   """mean +/- std (over the methods of the group) of the fraction of solved problems at TABLE_TAUS[k]."""
-  v = np.array([frac[m][k] for m in methods])
+  v = np.array([frac[l_idx][m][k] for m in methods])
   return rf"${v.mean():.2f} \pm {v.std():.2f}$"
 
 
@@ -226,12 +227,13 @@ def tau_header(tau):
   return rf"$\tau = 10^{{{int(round(np.log10(tau)))}}}$"
 
 
-lines = [r"\begin{tabular}{l" + "c" * len(TABLE_TAUS) + "}",
-         r"\toprule",
-         " & " + " & ".join(tau_header(t) for t in TABLE_TAUS) + r" \\",
-         r"\midrule"]
-for name, methods in (("Structured", STRUCTURED), ("Unstructured", UNSTRUCTURED)):
-  lines.append(name + " & " + " & ".join(cell(methods, k) for k in range(len(TABLE_TAUS))) + r" \\")
+lines = [r"\begin{tabular}{" + "l" * (len(TABLE_TAUS) + 1) + "}"]
+for l_idx, l_lab in enumerate(num_dirs_label):
+  lines += [r"\toprule",
+            rf"$\ell = {l_lab}$ & " + " & ".join(tau_header(t) for t in TABLE_TAUS) + r" \\",
+            r"\midrule"]
+  for name, methods in (("Structured", STRUCTURED), ("Unstructured", UNSTRUCTURED)):
+    lines.append(name + " & " + " & ".join(cell(l_idx, methods, k) for k in range(len(TABLE_TAUS))) + r" \\")
 lines += [r"\bottomrule", r"\end{tabular}"]
 
 table = "\n".join(lines)
