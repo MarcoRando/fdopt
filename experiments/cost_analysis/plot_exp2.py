@@ -4,25 +4,28 @@ import os
 import numpy as np
 from matplotlib.lines import Line2D
 
-from plot_common import COLOR, LABEL, MARKER, NAN, family_legend, plt, read_rows
-
-
-NAN = float("nan")
-
-ORDER = ["gaussian", "spherical", "rademacher", "coordinate", "qr", "qr_f32_reorth", "householder", "permuted_householder", "butterfly"]
-
-PALETTE = ["#0173b2", "#de8f05", "#029e73", "#d55e00", "#cc78bc", "#ca9161", "#fbafe4", "#949494", "#ece133", "#56b4e9"]
-COLOR = {f: PALETTE[i] for i, f in enumerate(ORDER) if f != "qr_f32_reorth"}
-MARKER = {f: m for f, m in zip(ORDER, "osD^vP*X<>") if f != "qr_f32_reorth"}
-DTYPES = ["float64", "float32"]
+from plot_common import ORDER, COLOR, MARKER, DTYPES, LABEL, NAN, plt, read_rows
 
 
 FIGS = {   # key -> (part, x axis, file stem, title)
-    "ask_l": ("ask", "l", "exp2_ask_vs_l", "Ask: perturbed points, largest batch"),
-    "ask_batch": (None, "batch", "exp2_ask_vs_batch", r"Ask in batches, $\ell = d$"),
-    "estimator_l": ("both", "l", "exp2_estimator_vs_l", "Entire estimator (ask + tell), largest batch"),
+#    "ask_l": ("ask", "l", "exp2_ask_vs_l", "Ask: perturbed points, largest batch"),
+#    "ask_batch": (None, "batch", "exp2_ask_vs_batch", r"Ask in batches, $\ell = d$"),
+    "estimator_l": ("both", "l", "exp2_estimator_vs_l", " "),
 }
 MiB = 2.0 ** 20
+
+# line style per family in the single-metric figures (same dashed curve as in plot_exp1)
+LS = {"qr_f32_reorth": "--"}
+
+
+def bottom_legend(fig, handles, fams, ncol=5):
+
+    ordered = [f for f in fams if f in handles]
+    if not ordered:
+        return
+    fig.legend([handles[f] for f in ordered], [LABEL[f] for f in ordered],   loc="lower left", bbox_to_anchor=(0.0, 0.0, 1.0, 0.1), mode="expand",
+               borderaxespad=0.2, ncol=min(len(ordered), ncol), frameon=False,
+               handlelength=2.5, fontsize=12)
 
 
 def val(r, base, stat="median"):
@@ -62,6 +65,7 @@ def make_figure(rows, key, metric, dtypes, dims, fams, a):
     fig, axs = plt.subplots(nr, nc, figsize=(3.6 * nc + 0.8, 3.1 * nr + 0.8), squeeze=False,
                             sharey="row" if a.sharey else False)
     any_data = False
+    handles = {}                                   # family -> artist, for the legend
     for i, dtype in enumerate(dtypes):
         for j, d in enumerate(dims):
             ax = axs[i][j]
@@ -71,7 +75,7 @@ def make_figure(rows, key, metric, dtypes, dims, fams, a):
                 if not pts:
                     continue
                 x = np.array([p[0] for p in pts], dtype=float)
-                kw = dict(color=COLOR[fam], marker=MARKER[fam], ms=5, lw=2, zorder=3)
+                kw = dict(color=COLOR[fam], marker=MARKER[fam], ms=5, lw=2, ls=LS.get(fam, "-"), zorder=3)
                 if metric == "time":
                     t = np.array([val(r, "time", "median") for _, r in pts])
                     lo = np.array([val(r, "time", a.band[0]) for _, r in pts])
@@ -79,32 +83,33 @@ def make_figure(rows, key, metric, dtypes, dims, fams, a):
                     err = None
                     if np.isfinite(lo).all() and np.isfinite(hi).all():
                         err = [np.maximum(t - lo, 0), np.maximum(hi - t, 0)]
-                    ax.errorbar(x, t, yerr=err, capsize=3, elinewidth=1.2, capthick=1.2, **kw)
+                    h = ax.errorbar(x, t, yerr=err, capsize=3, elinewidth=1.2, capthick=1.2, **kw)
                     panel_data = panel_data or np.isfinite(t).any()
                 else:
                     m = np.array([memory(r, a.mem_cols) for _, r in pts]) / MiB
-                    ax.plot(x, m, **kw)
+                    h, = ax.plot(x, m, **kw)
                     panel_data = panel_data or np.isfinite(m).any()
+                handles.setdefault(fam, h)
             any_data = any_data or panel_data
             ax.set_yscale("log")
             if mode == "batch":
                 ax.set_xscale("log")
-            ax.set_title(f"$d = {d}$")
+            if i ==0:
+                ax.set_title(f"$d = {d}$", fontsize=16)
             if j == 0:      # dtype label of the row (same box as plot_exp1.py)
                 ax.text(0.04, 0.95, dtype, transform=ax.transAxes, ha="left", va="top", fontsize=11, zorder=5,
                         bbox=dict(boxstyle="round,pad=0.3", fc="white", ec="0.4", alpha=0.95))
-                ax.set_ylabel("Time (s)" if metric == "time" else "Memory (MiB)", fontsize=14)
+                ax.set_ylabel("Time (s)" if metric == "time" else "Memory (MiB)", fontsize=16)
             if not panel_data:
                 ax.text(0.5, 0.5, "no data", transform=ax.transAxes, ha="center", color="gray")
             if i == nr - 1:
-                ax.set_xlabel(r"$\ell$" if mode == "l" else "batch size", fontsize=14)
+                ax.set_xlabel(r"$\ell$" if mode == "l" else "batch size", fontsize=16)
     if not any_data:
         print(f"[skip] {stem}_{metric}: no data with part='{part}'")
         plt.close(fig)
         return
-    fig.suptitle(f"{title}: {'time' if metric == 'time' else 'memory'}", fontsize=15)
-    bottom = family_legend(fig, fams)
-    fig.tight_layout(rect=(0, bottom, 1, 0.95))
+    bottom_legend(fig, handles, fams)
+    fig.tight_layout(rect=(0, 0.09, 1, 1))
     os.makedirs(a.outdir, exist_ok=True)
     for ext in a.formats:
         fig.savefig(os.path.join(a.outdir, f"{stem}_{metric}.{ext}"), bbox_inches="tight")
@@ -113,15 +118,14 @@ def make_figure(rows, key, metric, dtypes, dims, fams, a):
 
 
 def make_batch_both_figure(rows, dtypes, dims, fams, a):
-    """Extra figure for the l = d case, entire estimator (ask + tell): x = batch size (linear), time on the left
-    y axis (solid lines, error bars) and memory on a twin right y axis (dashed lines, hollow markers).
-    Same layout as make_figure: a row per dtype, a column per d."""
+
     part, mode, stem = "both", "batch", "exp2_estimator_vs_batch"
     nr, nc = len(dtypes), len(dims)
-    fig, axs = plt.subplots(nr, nc, figsize=(3.6 * nc + 1.2, 3.1 * nr + 0.8), squeeze=False,
+    fig, axs = plt.subplots(nr, nc, figsize=(3.6 * nc, 3.1 * nr), squeeze=False,
                             sharey="row" if a.sharey else False)
     twins = [[None] * nc for _ in range(nr)]
     any_data = False
+    handles = {}                                   # family -> artist, for the legend
     for i, dtype in enumerate(dtypes):
         for j, d in enumerate(dims):
             ax = axs[i][j]
@@ -142,8 +146,9 @@ def make_batch_both_figure(rows, dtypes, dims, fams, a):
                 if not a.no_errorbars and np.isfinite(lo).all() and np.isfinite(hi).all():
                     err = [np.maximum(t - lo, 0), np.maximum(hi - t, 0)]
                 # time: solid, thin cap-less error bars so that the panel stays readable
-                ax.errorbar(x, t, yerr=err, capsize=0, elinewidth=1.0, ecolor=COLOR[fam], color=COLOR[fam],
-                            marker=MARKER[fam], ms=5, lw=2, zorder=3)
+                h = ax.errorbar(x, t, yerr=err, capsize=0, elinewidth=1.0, ecolor=COLOR[fam], color=COLOR[fam],
+                                marker=MARKER[fam], ms=5, lw=2, zorder=3)
+                handles.setdefault(fam, h)
                 # memory: dashed, hollow markers, on the right axis
                 m = np.array([memory(r, a.mem_cols) for _, r in pts]) / MiB
                 ax2.plot(x, m, color=COLOR[fam], marker=MARKER[fam], ms=4, lw=1.4, ls="--", alpha=0.85,
@@ -155,28 +160,29 @@ def make_batch_both_figure(rows, dtypes, dims, fams, a):
             if a.sharey and j > 0:
                 ax2.sharey(twins[i][0])
                 ax2.tick_params(labelright=False)
-            ax.set_title(f"$d = {d}$")
+            if i ==0:
+                ax.set_title(f"$d = {d}$", fontsize=16)
             if j == 0:
                 ax.text(0.04, 0.95, dtype, transform=ax.transAxes, ha="left", va="top", fontsize=11, zorder=5,
                         bbox=dict(boxstyle="round,pad=0.3", fc="white", ec="0.4", alpha=0.95))
-                ax.set_ylabel("Time (s)", fontsize=14)
+                ax.set_ylabel("Time (s)", fontsize=16)
             if j == nc - 1:
-                ax2.set_ylabel("Memory (MiB)", fontsize=14)
+                ax2.set_ylabel("Memory (MiB)", fontsize=16)
             if not panel_data:
                 ax.text(0.5, 0.5, "no data", transform=ax.transAxes, ha="center", color="gray")
             if i == nr - 1:
-                ax.set_xlabel("batch size", fontsize=14)
+                ax.set_xlabel("batch size", fontsize=16)
     if not any_data:
         print(f"[skip] {stem}_time_memory: no data with part='{part}'")
         plt.close(fig)
         return
-    handles = [Line2D([0], [0], color="black", lw=2, marker="o", ms=5, label="time (left axis)"),
-               Line2D([0], [0], color="black", lw=1.4, ls="--", marker="o", ms=4, markerfacecolor="white",
-                      label="memory (right axis)")]
-    fig.legend(handles=handles, loc="upper center", bbox_to_anchor=(0.5, 1.0), ncol=2, frameon=False,
+    style_handles = [Line2D([0], [0], color="black", lw=2, marker="o", ms=5, label="time (left axis)"),
+                     Line2D([0], [0], color="black", lw=1.4, ls="--", marker="o", ms=4, markerfacecolor="white",
+                            label="memory (right axis)")]
+    fig.legend(handles=style_handles, loc="upper center", bbox_to_anchor=(0.5, 1.0), ncol=2, frameon=False,
                fontsize=12, handlelength=2.5)
-    bottom = family_legend(fig, fams)
-    fig.tight_layout(rect=(0, bottom, 1, 0.94))
+    bottom_legend(fig, handles, fams)
+    fig.tight_layout(rect=(0, 0.09, 1, 0.94))
     os.makedirs(a.outdir, exist_ok=True)
     for ext in a.formats:
         fig.savefig(os.path.join(a.outdir, f"{stem}_time_memory.{ext}"), bbox_inches="tight")
@@ -309,10 +315,8 @@ def main():
     for key in a.figures:
         for metric in a.metrics:
             make_figure(rows, key, metric, dtypes, dims, fams, a)
-    # additional figure (ask + tell, l = d, x = batch size), drawn after all the others and only when both
-    # time and memory are requested
-    if "ask_batch" in a.figures and {"time", "memory"} <= set(a.metrics):
-        make_batch_both_figure(rows, dtypes, dims, fams, a)
+    # additional figure (ask + tell, l = d, x = batch size), time and memory together
+    make_batch_both_figure(rows, dtypes, dims, fams, a)
     if not a.no_tables:
         write_tables(rows, dtypes, dims, fams, a)
 

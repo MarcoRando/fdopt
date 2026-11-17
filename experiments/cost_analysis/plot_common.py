@@ -7,20 +7,44 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 from matplotlib.lines import Line2D  # noqa: E402
 
-NAN = float("nan")
+#NAN = float("nan")
 # Same order, labels, colours and markers as plot_exp1.py, so a method has the same colour in every figure.
-ORDER = ["coordinate", "qr", "qr_reorth", "qr_f32_reorth", "householder", "permuted_householder", "butterfly",
-         "gaussian", "spherical", "rademacher"]
+# ORDER = ["coordinate", "qr", "qr_reorth", "qr_f32_reorth", "householder", "permuted_householder", "butterfly",
+#          "gaussian", "spherical", "rademacher"]
+
+
+NAN = float("nan")
+
+ORDER = ["gaussian", "spherical", "rademacher", "coordinate", "qr", "qr_f32_reorth", "householder", "permuted_householder", "butterfly"]
+
+PALETTE = ["#0173b2", "#de8f05", "#029e73", "#d55e00", "#cc78bc", "#ca9161", "#fbafe4", "#949494", "#ece133", "#56b4e9"]
+COLOR = {f: PALETTE[i] for i, f in enumerate(ORDER) }
+MARKER = {f: m for f, m in zip(ORDER, "osD^vP*X<>") }
+DTYPES = ["float64", "float32"]
+
+
+
+
 LABEL = {"coordinate": "coordinate", "qr": "QR", "qr_reorth": "QR [reorthogonalization]",
          "qr_f32_reorth": "QR [float 32 with reorthogonalization]", "householder": "householder",
          "permuted_householder": "permuted householder", "butterfly": "butterfly",
          "gaussian": "gaussian", "spherical": "spherical", "rademacher": "rademacher"}
+
+
+
+
 LETTER = {"coordinate": "C", "qr": "Q", "qr_reorth": "O", "qr_f32_reorth": "F", "householder": "H",
           "permuted_householder": "P", "butterfly": "B", "gaussian": "G", "spherical": "S", "rademacher": "R"}
 # seaborn "colorblind" palette (hard-coded so that seaborn itself is not needed), one colour + marker per family
-PALETTE = ["#0173b2", "#de8f05", "#029e73", "#d55e00", "#cc78bc", "#ca9161", "#fbafe4", "#949494", "#ece133", "#56b4e9"]
-COLOR = {f: PALETTE[i] for i, f in enumerate(ORDER)}
-MARKER = {f: m for f, m in zip(ORDER, "osD^vP*X<>")}
+#PALETTE = ["#0173b2", "#de8f05", "#029e73", "#d55e00", "#cc78bc", "#ca9161", "#fbafe4", "#949494", "#ece133", "#56b4e9"]
+#COLOR = {f: PALETTE[i] for i, f in enumerate(ORDER)}
+#MARKER = {f: m for f, m in zip(ORDER, "osD^vP*X<>")}
+
+
+
+
+
+
 TEXT_COLS = ("function", "family", "dtype", "ls_params")
 
 try:

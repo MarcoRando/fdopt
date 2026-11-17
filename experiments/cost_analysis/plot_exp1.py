@@ -116,7 +116,11 @@ def make_figure(rows, dims, fams, a):
                 else:
                     ax.errorbar(x, med, yerr=[lo, hi], marker=MARKER.get(fam, "o"), ms=5, lw=2, capsize=3, elinewidth=1.3,
                                 capthick=1.3, color=COLOR.get(fam), label=fam_to_label[fam], zorder=3)
-            ax.set(yscale="log", title=f"$d = {d}$")      # x axis stays linear
+            ax.set(yscale="log")      # x axis stays linear
+
+            if i ==0:
+                ax.set_title(f"$d = {d}$", fontsize=16)
+
             if j == 0:    
                 ax.text(0.04, 0.95, dt, transform=ax.transAxes, ha="left", va="top", fontsize=11, zorder=5,
                         bbox=dict(boxstyle="round,pad=0.3", fc="white", ec="0.4", alpha=0.95))
@@ -131,7 +135,7 @@ def make_figure(rows, dims, fams, a):
         for h, lab in zip(*ax.get_legend_handles_labels()):
             handles.setdefault(lab, h)
     fig.legend(list(handles.values()), list(handles), loc="lower center", ncol=min(len(handles), 5), frameon=False,
-               handlelength=2.5)
+               handlelength=2.5, fontsize=12)
     fig.tight_layout(rect=(0, 0.09, 1, 1))
     os.makedirs(a.outdir, exist_ok=True)
     for ext in a.formats:
@@ -207,7 +211,7 @@ def main():
     ap.add_argument("--dims", type=int, nargs="*", default=None, help="dimensions to show (default: all in the file)")
     ap.add_argument("--frac", type=float, default=1.0, help="tables: use l closest to frac * d")
     ap.add_argument("--sharey", action="store_true", help="share the y axis along each row")
-    ap.add_argument("--formats", nargs="+", default=["png", "pdf"])
+    ap.add_argument("--formats", nargs="+", default=["pdf"])
     a = ap.parse_args()
 
     path = os.path.join(a.indir, a.csv)
