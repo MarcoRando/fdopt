@@ -1,5 +1,6 @@
 import os
 import sys
+import warnings
 
 import numpy as np
 import pandas as pd
@@ -24,10 +25,20 @@ except OSError:
 plt.rcParams.update({"figure.dpi": 110, "font.size": 10, "axes.titlesize": 14, "axes.labelsize": 10,
                      "xtick.labelsize": 12, "ytick.labelsize": 12, "grid.alpha": 0.5})
 
+# usage: python plot_convergence_table.py <base_dir> <reps> [table.tex] [reps|boot]
+#   reps : band / +- from the repetitions (one fraction of solved problems per repetition)
+#   boot : band / +- from a bootstrap over the problems (uncertainty due to the choice of the benchmark)
 base_dir = sys.argv[1]
 reps = int(sys.argv[2])
 table_path = sys.argv[3] if len(sys.argv) > 3 else "./frac_solved_table.tex"
+BAND = sys.argv[4] if len(sys.argv) > 4 else "reps"
+if BAND not in ("reps", "boot"):
+  raise SystemExit("band must be 'reps' or 'boot'")
 data_dir = f"{base_dir}/ffd/cutest"
+
+EPS = 1e-10          # same regularisation as before in the convergence test
+PCT = (5, 95)        # band = 5-95 percentiles
+N_BOOT = 1000
 
 WANTED = ['spherical', 'gaussian', 'rademacher', 'coordinate', 'householder', 'butterfly', 'permuted_householder', 'qr']
 direction_type = [f for f in ORDER if f in WANTED]          # keep the global ordering
@@ -55,6 +66,11 @@ def save_with_legend(fig, path):
   plt.close(fig)
 
 
+def plot_band(ax, x, mean, lo, hi, color, lw):
+  ax.plot(x, mean, '-', lw=lw, c=color, rasterized=True)
+  ax.fill_between(x, lo, hi, color=color, alpha=0.2, linewidth=0, rasterized=True)
+
+
 problems = []
 
 with open("../cutest_problem_names.log", 'r') as f:
@@ -66,6 +82,7 @@ directories = os.listdir(data_dir)
 
 print("[--] Num files: ", len(directories))
 
+# values[problem][method][l_idx] = array (n_reps_found, n_fevals): ALL the repetitions are kept
 min_values = {}
 init_values = {}
 values = {}
@@ -107,10 +124,9 @@ for (function, d_idx, d) in problems:
             min_v = min_val
       if min_v is not None:
         min_len = min([len(dir_values[i]) for i in range(len(dir_values))])
-        dir_values = [dir_values[i][:min_len] for i in range(len(dir_values))]
-        mu_vals, std_vals = np.mean(dir_values, axis=0), np.std(dir_values, axis=0)
+        dir_values = np.array([dir_values[i][:min_len] for i in range(len(dir_values))])    # (n_reps_found, min_len)
         min_values[f"{function}_{d_idx}_{d}"] = min(min_values[f"{function}_{d_idx}_{d}"], min_v) if min_values[f"{function}_{d_idx}_{d}"] is not None else min_v
-        values[f"{function}_{d_idx}_{d}"][dir_type].append((mu_vals, std_vals))
+        values[f"{function}_{d_idx}_{d}"][dir_type].append(dir_values)
       else:
         if f"{function}_{d_idx}_{d}" in init_values:
           del min_values[f"{function}_{d_idx}_{d}"]
@@ -122,54 +138,75 @@ for (function, d_idx, d) in problems:
 
 
 print("[--] Results Loaded!")
+
+keys = list(min_values.keys())
+P = len(keys)
+
+
+def run_ratio(runs, key):
+  """normalised optimality gap of every run: (f - f_min + eps) / (f_0 - f_min + eps)"""
+  return (runs - min_values[key] + EPS) / (init_values[key] - min_values[key] + EPS)
+
+
+_ratio_cache = {}
+
+
+def best_ratios(dir_type, l_idx):
+  """(P, reps) best normalised gap reached by each repetition on each problem (NaN = missing / invalid)."""
+  if (dir_type, l_idx) not in _ratio_cache:
+    out = np.full((P, reps), np.nan)
+    for p, key in enumerate(keys):
+      r = run_ratio(values[key][dir_type][l_idx], key).min(axis=1)
+      r[~np.isfinite(r)] = np.nan
+      out[p, :len(r)] = r
+    _ratio_cache[(dir_type, l_idx)] = out
+  return _ratio_cache[(dir_type, l_idx)]
+
+
+def boot_means(s):
+  """bootstrap over the problems: s is (P, T) = per-problem fraction solved -> (N_BOOT, T) resampled means."""
+  rng = np.random.default_rng(0)
+  n = s.shape[0]
+  W = rng.multinomial(n, np.full(n, 1.0 / n), size=N_BOOT)
+  return (W @ s) / n
+
+
+def summarize(S):
+  """S: (P, reps, T), 1 = solved, 0 = not solved, NaN = missing. Returns mean, lo, hi, each of shape (T,)."""
+  with warnings.catch_warnings():
+    warnings.simplefilter("ignore", RuntimeWarning)
+    s = np.nanmean(S, axis=1)                         # (P, T) fraction of repetitions that solved the problem
+    keep = ~np.isnan(s).all(axis=1)
+    s = s[keep]
+    mean = s.mean(axis=0)
+    if BAND == "reps":
+      f = np.nanmean(S[keep], axis=0)                 # (reps, T) one fraction of solved problems per repetition
+      f = f[~np.isnan(f).all(axis=1)]
+      lo, hi = np.percentile(f, PCT, axis=0)
+    else:
+      lo, hi = np.percentile(boot_means(s), PCT, axis=0)
+  return mean, lo, hi
+
+
+print(f"[--] Plotting Fraction of Solved (band: {BAND})")
 taus_perf = np.logspace(-15, 0, 1000)
 
+profile = {}
+for dir_type in direction_type:
+  for l_idx in range(len(num_dirs_label)):
+    R = best_ratios(dir_type, l_idx)
+    S = (R[:, :, None] <= taus_perf[None, None, :]).astype(np.float32)
+    S[np.isnan(R)] = np.nan
+    profile[(dir_type, l_idx)] = summarize(S)
 
-results = {dir_type : [[None for _ in range(taus_perf.shape[0])] for _ in range(len(num_directions)) ] for dir_type in direction_type}
-for (j, tau) in enumerate(taus_perf):
-  for (k, fun_key) in enumerate(min_values.keys()):
-    for i in range(len(num_directions)):
-      min_val = min_values[fun_key]
-      init_val = init_values[fun_key]
-      for dir_type in direction_type:
-        mu_values, _ = values[fun_key][dir_type][i]
-        if np.any(np.isnan([np.min(mu_values), init_val,min_val])) or np.any(np.isinf([np.min(mu_values), init_val,min_val])):
-          continue
-        convergence_test = ((np.min(mu_values) - min_val + 1e-10) / (init_val - min_val + 1e-10)) <= tau
-        if results[dir_type][i][j] is None:
-          results[dir_type][i][j] = [convergence_test]
-        else:
-          results[dir_type][i][j].append(convergence_test)
-
-
-taus = np.array([1e-9, 1e-7, 1e-5, 1e-3, 1e-2, 1e-1, 1e0])
-full_values = {dir_type : [[None for _ in range(taus.shape[0])] for _ in range(len(num_directions)) ] for dir_type in direction_type}
-for (j, tau) in enumerate(taus):
-  for (k, fun_key) in enumerate(min_values.keys()):
-    for i in range(len(num_directions)):
-      min_val = min_values[fun_key]
-      init_val = init_values[fun_key]
-      for dir_type in direction_type:
-        mu_values, _ = values[fun_key][dir_type][i]
-        if np.any(np.isnan([np.min(mu_values), init_val,min_val])) or np.any(np.isinf([np.min(mu_values), init_val,min_val])):
-          continue
-        full_convergence_test = ((mu_values - min_val + 1e-10) / (init_val - min_val + 1e-10))  <= tau
-        if full_values[dir_type][i][j] is None:
-          full_values[dir_type][i][j] = [full_convergence_test]
-        else:
-          full_values[dir_type][i][j].append(full_convergence_test)
-
-
-print("[--] Plotting Fraction of Solved")
-
-fig, axes = plt.subplots(1, len(num_directions), figsize=(16, 4))
+fig, axes = plt.subplots(1, len(num_dirs_label), figsize=(16, 4))
 axes = axes.flatten()
 
-for i in range(len(num_directions)):
+for i in range(len(num_dirs_label)):
   ax = axes[i]
   for dir_type in direction_type:
-    ax.plot(taus_perf, [np.mean(ris) for ris in results[dir_type][i]], '-', lw=2.5,
-            c=COLOR[dir_type], rasterized=True)
+    mean, lo, hi = profile[(dir_type, i)]
+    plot_band(ax, taus_perf, mean, lo, hi, COLOR[dir_type], 2.5)
   ax.set_xscale('log')
   ax.set_ylim([-0.02, 1.02])
 style_axes(axes, r"$\tau$", r"$\rho_{val}(\tau)$")
@@ -177,50 +214,68 @@ save_with_legend(fig, "./frac_solved_cutest.pdf")
 
 
 print("[++] Plotting Fraction Solved per Function Evaluations")
+taus = np.array([1e-9, 1e-7, 1e-5, 1e-3, 1e-2, 1e-1, 1e0])
+PLOT_TAU_IDX = [0, 1, 2, 3, 4, 5]
 
-for tau_idx in [0, 1, 2, 3, 4, 5]:
+traj = {}
+for dir_type in direction_type:
+  for l_idx in range(len(num_dirs_label)):
+    runs_list = [values[key][dir_type][l_idx] for key in keys]
+    max_len = max(r.shape[1] for r in runs_list)
+    R = np.full((P, reps, max_len), np.nan, dtype=np.float32)
+    for p, key in enumerate(keys):
+      rr = run_ratio(runs_list[p], key)
+      n_r, L = rr.shape
+      bad = ~np.isfinite(rr).all(axis=1)
+      R[p, :n_r, :L] = rr
+      R[p, :n_r, L:] = rr.min(axis=1)[:, None]        # a finished run keeps its best value (solved stays solved)
+      R[p, :n_r][bad] = np.nan
+    missing = np.isnan(R)
+    for tau_idx in PLOT_TAU_IDX:
+      S = (R <= taus[tau_idx]).astype(np.float32)
+      S[missing] = np.nan
+      traj[(dir_type, l_idx, tau_idx)] = summarize(S)
+    del R, S, missing
+
+for tau_idx in PLOT_TAU_IDX:
   print("\t[--] Accuracy tau = ", taus[tau_idx])
-  fig, axes = plt.subplots(1, len(num_directions), figsize=(16, 4))
+  fig, axes = plt.subplots(1, len(num_dirs_label), figsize=(16, 4))
   axes = axes.flatten()
 
-  for i in range(len(num_directions)):
+  for i in range(len(num_dirs_label)):
     ax = axes[i]
     for dir_type in direction_type:
-      max_len = max([elem.shape[0] for elem in full_values[dir_type][i][tau_idx]])
-      for k in range(len(full_values[dir_type][i][tau_idx])):
-        if full_values[dir_type][i][tau_idx][k].shape[0] < max_len:
-          full_values[dir_type][i][tau_idx][k] = np.pad(full_values[dir_type][i][tau_idx][k], (0, max_len - full_values[dir_type][i][tau_idx][k].shape[0]), mode='maximum' )
-      vals = np.mean(full_values[dir_type][i][tau_idx], axis=0)
-      ax.plot(range(1, len(vals) + 1), vals, '-', lw=3, c=COLOR[dir_type], rasterized=True)
+      mean, lo, hi = traj[(dir_type, i, tau_idx)]
+      plot_band(ax, np.arange(1, len(mean) + 1), mean, lo, hi, COLOR[dir_type], 3)
     ax.set_ylim([-0.01, 1.01])
   style_axes(axes, "# function evaluations", r"$\rho_{val}(\tau)$")
   save_with_legend(fig, f"./frac_solved_fvals_profile_cutest_{taus[tau_idx]}.pdf")
 
 
-print("[++] Writing LaTeX table (l = d)")
-
-# fraction of solved problems per method and per l (all entries of num_directions), at the table taus
-# frac[l_idx][method] = [one value per tau in TABLE_TAUS]
-frac = [{} for _ in num_dirs_label]
-for L_IDX in range(len(num_dirs_label)):
-  for dir_type in direction_type:
-    tests = [[] for _ in TABLE_TAUS]
-    for fun_key in min_values.keys():
-      min_val, init_val = min_values[fun_key], init_values[fun_key]
-      mu_values, _ = values[fun_key][dir_type][L_IDX]
-      best = np.min(mu_values)
-      if not np.all(np.isfinite([best, init_val, min_val])):
-        continue
-      ratio = (best - min_val + 1e-10) / (init_val - min_val + 1e-10)
-      for k, tau in enumerate(TABLE_TAUS):
-        tests[k].append(ratio <= tau)
-    frac[L_IDX][dir_type] = [np.mean(x) for x in tests]
+print("[++] Writing LaTeX table")
 
 
-def cell(l_idx, methods, k):
-  """mean +/- std (over the methods of the group) of the fraction of solved problems at TABLE_TAUS[k]."""
-  v = np.array([frac[l_idx][m][k] for m in methods])
-  return rf"${v.mean():.2f} \pm {v.std():.2f}$"
+def table_cell(l_idx, methods, tau):
+  """mean +- std of the fraction of solved problems, averaged over the methods of the group.
+  reps: std over the repetitions.  boot: std of the bootstrap over the problems (standard error)."""
+  per_rep, per_prob = [], []
+  with warnings.catch_warnings():
+    warnings.simplefilter("ignore", RuntimeWarning)
+    for m in methods:
+      R = best_ratios(m, l_idx)
+      S = (R <= tau).astype(float)
+      S[np.isnan(R)] = np.nan
+      per_prob.append(np.nanmean(S, axis=1))          # (P,)
+      per_rep.append(np.nanmean(S, axis=0))           # (reps,)
+  if BAND == "reps":
+    g = np.mean(per_rep, axis=0)
+    g = g[~np.isnan(g)]
+    mean, std = g.mean(), (g.std(ddof=1) if len(g) > 1 else 0.0)
+  else:
+    sg = np.mean(per_prob, axis=0)
+    sg = sg[~np.isnan(sg)]
+    mean, std = sg.mean(), boot_means(sg[:, None])[:, 0].std()
+  return rf"${mean:.2f} \pm {std:.2f}$"
 
 
 def tau_header(tau):
@@ -233,7 +288,7 @@ for l_idx, l_lab in enumerate(num_dirs_label):
             rf"$\ell = {l_lab}$ & " + " & ".join(tau_header(t) for t in TABLE_TAUS) + r" \\",
             r"\midrule"]
   for name, methods in (("Structured", STRUCTURED), ("Unstructured", UNSTRUCTURED)):
-    lines.append(name + " & " + " & ".join(cell(l_idx, methods, k) for k in range(len(TABLE_TAUS))) + r" \\")
+    lines.append(name + " & " + " & ".join(table_cell(l_idx, methods, t) for t in TABLE_TAUS) + r" \\")
 lines += [r"\bottomrule", r"\end{tabular}"]
 
 table = "\n".join(lines)
