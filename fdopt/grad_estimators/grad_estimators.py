@@ -1,9 +1,7 @@
+from collections.abc import Callable
+
 import torch
 
-from typing import Union, Callable, Dict
-
-from fdopt.direction_generators.generator import DirectionGenerator
-from fdopt.direction_generators.structured_directions import CoordinateDirections
 
 class GradEstimator:
     
@@ -17,5 +15,8 @@ class GradEstimator:
 class ForwardFD(GradEstimator):
         
     def __call__(self, f : Callable[[torch.Tensor], torch.Tensor], x : torch.Tensor,  P : torch.Tensor, h : float):        
-        return ((f(x + h * P) - f(x.repeat_interleave(P.shape[0], dim=0)) ).div(h).reshape(P.shape[0], -1) * P).sum(dim=0, keepdims=True).mul(self.nrm_const)        
+        x_next = x + h * P
+        diff = f(x_next) - f(x.repeat_interleave(P.shape[0], dim=0))
+        diff.div_(h)
+        return (diff.reshape(P.shape[0], -1) * P).sum(dim=0, keepdims=True).mul(self.nrm_const)        
 

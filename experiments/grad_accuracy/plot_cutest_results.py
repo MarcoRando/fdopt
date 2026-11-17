@@ -21,7 +21,7 @@ try:
 except OSError:
     plt.style.use("ggplot")
 plt.rcParams.update({"figure.dpi": 110, "font.size": 10, "axes.titlesize": 14, "axes.labelsize": 10,
-                     "xtick.labelsize": 10, "ytick.labelsize": 9, "legend.fontsize": 12, "grid.alpha": 0.5})
+                     "xtick.labelsize": 12, "ytick.labelsize": 12, "grid.alpha": 0.5})
 
 WANTED = ["spherical", "gaussian", "rademacher", "coordinate", "householder",
           "butterfly", "permuted_householder", "qr"]
@@ -45,7 +45,7 @@ for filename in sorted(os.listdir(base_path)):
             data_l = data[data["l"] == l]
             results[t][i].append(np.mean(data_l[data_l["directions"] == t]["err"].values))
 
-fig, axes = plt.subplots(1, len(l_labels), figsize=(15, 4))
+fig, axes = plt.subplots(1, len(l_labels), figsize=(16, 4))
 
 for i, ax in enumerate(axes):
     taus = np.logspace(-1, 1, 5000) if i < len(l_labels) - 1 else np.logspace(-7, 1, 5000)
@@ -53,19 +53,21 @@ for i, ax in enumerate(axes):
     for t in direction_type:
         result = np.sort(np.array(results[t][i]))
         y = np.searchsorted(result, taus, side="left") / result.shape[0]   # fraction with err < tau
-        ax.plot(taus, y, "-", lw=2.5, c=COLOR[t], rasterized=True)
+        ax.plot(taus, y, "-", lw=3, c=COLOR[t], rasterized=True)
     ax.set_xscale("log")
     ax.set_ylim(-0.02, 1.02)
-    ax.set_xlabel(r"$\tau$", fontsize=15)
+    ax.tick_params(axis='both', labelsize=13)
+    ax.set_xlabel(r"$\tau$", fontsize=16)
     if i == 0:
-        ax.set_ylabel(r"$\rho_{grad}(\tau)$", fontsize=15, labelpad=8)
+        ax.set_ylabel(r"$\rho_{grad}(\tau)$", fontsize=16, labelpad=8)
 
 handles = [Line2D([0], [0], color=COLOR[t], lw=3, label=LABEL[t]) for t in direction_type]
 ncol = min(len(handles), 5)
-fig.tight_layout()
-fig.legend(handles=handles, loc="lower center", bbox_to_anchor=(0.5, -0.0), ncol=ncol,
-           frameon=False, handlelength=1.5, fontsize=16)
-fig.subplots_adjust(bottom=0.32)
+#fig.tight_layout()
+fig.legend(handles=handles, loc="lower left", bbox_to_anchor=(0.0, 0.0, 1.0, 1.0), ncol=ncol,
+           frameon=False, handlelength=2.5, fontsize=14, mode='expand', borderaxespad=0.2)
+#fig.subplots_adjust(bottom=0.32)
+fig.tight_layout(rect=(0.0, 0.15, 1.0,1.0))
 fig.savefig(out_path, bbox_inches="tight")
 fig.savefig(os.path.splitext(out_path)[0] + ".png", bbox_inches="tight")
 plt.close(fig)

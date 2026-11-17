@@ -1,9 +1,9 @@
-import time
-import torch
-from math import floor, log2, pi, sin, cos, sqrt
+from math import floor, log2, pi
 
+import torch
 
 from fdopt.direction_generators.generator import DirectionGenerator
+
 
 class CoordinateDirections(DirectionGenerator):
     
