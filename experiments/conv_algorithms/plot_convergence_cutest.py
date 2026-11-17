@@ -26,7 +26,7 @@ plt.rcParams.update({"figure.dpi": 110, "font.size": 10, "axes.titlesize": 14, "
 
 base_dir = sys.argv[1]
 reps = int(sys.argv[2])
-data_dir = f"{base_dir}/convergence/ffd/cutest"
+data_dir = f"{base_dir}/ffd/cutest"
 
 WANTED = ['spherical', 'gaussian', 'rademacher', 'coordinate', 'householder', 'butterfly', 'permuted_householder', 'qr']
 direction_type = [f for f in ORDER if f in WANTED]          # keep the global ordering
