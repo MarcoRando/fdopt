@@ -22,7 +22,7 @@ try:
 except OSError:
   plt.style.use("ggplot")
 plt.rcParams.update({"figure.dpi": 110, "font.size": 10, "axes.titlesize": 14, "axes.labelsize": 10,
-                     "xtick.labelsize": 10, "ytick.labelsize": 9, "legend.fontsize": 12, "grid.alpha": 0.5})
+                     "xtick.labelsize": 12, "ytick.labelsize": 12, "grid.alpha": 0.5})
 
 base_dir = sys.argv[1]
 reps = int(sys.argv[2])
@@ -36,16 +36,18 @@ num_dirs_label = ["2", "d/3", "d/2", "4d/5", "d"]
 def style_axes(axes, xlabel, ylabel):
   for i, ax in enumerate(axes):
     ax.set_title(rf"$\ell = {num_dirs_label[i]}$")
-    ax.set_xlabel(xlabel, fontsize=15)
-  axes[0].set_ylabel(ylabel, fontsize=15, labelpad=8)
+    ax.set_xlabel(xlabel, fontsize=16)
+  axes[0].set_ylabel(ylabel, fontsize=16, labelpad=8)
 
 
 def save_with_legend(fig, path):
   handles = [Line2D([0], [0], color=COLOR[t], lw=3, label=LABEL[t]) for t in direction_type]
-  fig.tight_layout()
-  fig.legend(handles=handles, loc="lower center", bbox_to_anchor=(0.5, -0.0), ncol=min(len(handles), 4),
-             frameon=False, handlelength=1.5, fontsize=16)
-  fig.subplots_adjust(bottom=0.32)
+#  fig.tight_layout() 
+  ncol = min(len(handles), 5)
+  fig.legend(handles=handles, loc="lower left", bbox_to_anchor=(0.0, 0.0, 1.0, 1.0), ncol=ncol,
+           frameon=False, handlelength=2.5, fontsize=14, mode='expand', borderaxespad=0.2)
+#  fig.subplots_adjust(bottom=0.32)
+  fig.tight_layout(rect=(0.0, 0.15, 1.0,1.0))
   fig.savefig(path, bbox_inches="tight")
   plt.close(fig)
 
@@ -157,7 +159,7 @@ for (j, tau) in enumerate(taus):
 
 print("[--] Plotting Fraction of Solved")
 
-fig, axes = plt.subplots(1, len(num_directions), figsize=(15, 4))
+fig, axes = plt.subplots(1, len(num_directions), figsize=(16, 4))
 axes = axes.flatten()
 
 for i in range(len(num_directions)):
@@ -175,7 +177,7 @@ print("[++] Plotting Fraction Solved per Function Evaluations")
 
 for tau_idx in [0, 1, 2, 3, 4, 5]:
   print("\t[--] Accuracy tau = ", taus[tau_idx])
-  fig, axes = plt.subplots(1, len(num_directions), figsize=(15, 4))
+  fig, axes = plt.subplots(1, len(num_directions), figsize=(16, 4))
   axes = axes.flatten()
 
   for i in range(len(num_directions)):
@@ -186,7 +188,7 @@ for tau_idx in [0, 1, 2, 3, 4, 5]:
         if full_values[dir_type][i][tau_idx][k].shape[0] < max_len:
           full_values[dir_type][i][tau_idx][k] = np.pad(full_values[dir_type][i][tau_idx][k], (0, max_len - full_values[dir_type][i][tau_idx][k].shape[0]), mode='maximum' )
       vals = np.mean(full_values[dir_type][i][tau_idx], axis=0)
-      ax.plot(range(1, len(vals) + 1), vals, '-', lw=2.5, c=COLOR[dir_type], rasterized=True)
+      ax.plot(range(1, len(vals) + 1), vals, '-', lw=3, c=COLOR[dir_type], rasterized=True)
     ax.set_ylim([-0.01, 1.01])
   style_axes(axes, "# function evaluations", r"$\rho_{val}(\tau)$")
   save_with_legend(fig, f"./frac_solved_fvals_profile_cutest_{taus[tau_idx]}.pdf")
