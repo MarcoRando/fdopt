@@ -183,12 +183,10 @@ class ButterflyMatrix(Operator):
         self.m = floor(log2(self.d))
         self.d0 = 2 ** self.m
         self.to_add = self.d - self.d0
-        th = 2 * pi * torch.rand(self.m, generator=self.generator,
-                                 device=self.device, dtype=self.dtype)
+        th = 2 * pi * torch.rand(self.m, generator=self.generator, device=self.device, dtype=self.dtype)
         self.cos, self.sin = torch.cos(th), torch.sin(th)
         self._u = None
-        self.sel = torch.randperm(self.d, generator=self.generator,
-                                  device=self.device)[: self.l]
+        self.sel = torch.randperm(self.d, generator=self.generator, device=self.device)[: self.l]
 
     def _half(self, js, ks):
         n = js.shape[0]
@@ -221,13 +219,11 @@ class ButterflyMatrix(Operator):
         is_b = sel < self.d0
         Pc = torch.zeros(e - a, self.d, dtype=self.dtype, device=self.device)
 
-        Pc[:, : self.d0] = (self._bfly_cols(sel.clamp(max=self.d0 - 1))
-                            * is_b.unsqueeze(1).to(self.dtype))
+        Pc[:, : self.d0] = (self._bfly_cols(sel.clamp(max=self.d0 - 1)) * is_b.unsqueeze(1).to(self.dtype))
 
         if self.to_add > 0:
             off = sel - self.d0
-            Pc[:, self.d0:] = (off.unsqueeze(1)
-                               == self._ar(self.to_add).unsqueeze(0)).to(self.dtype)
+            Pc[:, self.d0:] = (off.unsqueeze(1) == self._ar(self.to_add).unsqueeze(0)).to(self.dtype)
         return Pc
 
     def perturb(self, x, h, a, e):
@@ -242,8 +238,7 @@ class ButterflyMatrix(Operator):
         self._u.index_add_(0, sel.clamp(max=self.d0 - 1), s * is_b.to(s.dtype))
 
         if self.to_add > 0:
-            g.view(-1)[self.d0:].index_add_(
-                0, (sel - self.d0).clamp(min=0), s * (~is_b).to(s.dtype))
+            g.view(-1)[self.d0:].index_add_(0, (sel - self.d0).clamp(min=0), s * (~is_b).to(s.dtype))
 
     def finalize(self, g):
         if self._u is not None:
