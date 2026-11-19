@@ -25,9 +25,6 @@ except OSError:
 plt.rcParams.update({"figure.dpi": 110, "font.size": 10, "axes.titlesize": 14, "axes.labelsize": 10,
                      "xtick.labelsize": 12, "ytick.labelsize": 12, "grid.alpha": 0.5})
 
-# usage: python plot_convergence_table.py <base_dir> <reps> [table.tex] [reps|boot]
-#   reps : band / +- from the repetitions (one fraction of solved problems per repetition)
-#   boot : band / +- from a bootstrap over the problems (uncertainty due to the choice of the benchmark)
 base_dir = sys.argv[1]
 reps = int(sys.argv[2])
 table_path = sys.argv[3] if len(sys.argv) > 3 else "./frac_solved_table.tex"
@@ -36,8 +33,8 @@ if BAND not in ("reps", "boot"):
   raise SystemExit("band must be 'reps' or 'boot'")
 data_dir = f"{base_dir}/ffd/cutest"
 
-EPS = 1e-10          # same regularisation as before in the convergence test
-PCT = (5, 95)        # band = 5-95 percentiles
+EPS = 1e-10        
+PCT = (5, 95)      
 N_BOOT = 1000
 
 WANTED = ['spherical', 'gaussian', 'rademacher', 'coordinate', 'householder', 'butterfly', 'permuted_householder', 'qr']

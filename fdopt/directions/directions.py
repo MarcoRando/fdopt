@@ -176,20 +176,19 @@ class PermutedHouseholder(Operator):
 
 
 class ButterflyMatrix(Operator):
+
     orthogonal = True
 
     def resample(self):
         self.m = floor(log2(self.d))
         self.d0 = 2 ** self.m
         self.to_add = self.d - self.d0
-        th = 2 * pi * torch.rand(self.m, generator=self.generator, device=self.device, dtype=self.dtype)
+        th = 2 * pi * torch.rand(self.m, generator=self.generator,
+                                 device=self.device, dtype=self.dtype)
         self.cos, self.sin = torch.cos(th), torch.sin(th)
         self._u = None
-        self.d_eff = min(self.d0, self.l)
-        if self.to_add == 0:
-            self.sel = torch.arange(self.l, device=self.device)
-        else:
-            self.sel = torch.randperm(self.d_eff + self.to_add, generator=self.generator, device=self.device)[: self.l]
+        self.sel = torch.randperm(self.d, generator=self.generator,
+                                  device=self.device)[: self.l]
 
     def _half(self, js, ks):
         n = js.shape[0]
@@ -197,7 +196,8 @@ class ButterflyMatrix(Operator):
         for k in ks:
             jk = (js >> k) & 1
             c, s = self.cos[k], self.sin[k]
-            r = torch.stack([torch.where(jk == 0, c, -s), torch.where(jk == 0, s, c)], dim=1)
+            r = torch.stack([torch.where(jk == 0, c, -s),
+                             torch.where(jk == 0, s, c)], dim=1)
             col = (r.unsqueeze(2) * col.unsqueeze(1)).reshape(n, -1)
         return col
 
@@ -218,14 +218,16 @@ class ButterflyMatrix(Operator):
 
     def chunk(self, a, e):
         sel = self.sel[a:e]
+        is_b = sel < self.d0
         Pc = torch.zeros(e - a, self.d, dtype=self.dtype, device=self.device)
-        if self.to_add == 0:
-            Pc[:, : self.d0] = self._bfly_cols(sel)
-            return Pc
-        is_b = sel < self.d_eff
-        Pc[:, : self.d0] = self._bfly_cols(sel.clamp(max=self.d_eff - 1)) * is_b.unsqueeze(1).to(self.dtype)
-        off = sel - self.d_eff
-        Pc[:, self.d0:] = (off.unsqueeze(1) == self._ar(self.to_add).unsqueeze(0)).to(self.dtype)
+
+        Pc[:, : self.d0] = (self._bfly_cols(sel.clamp(max=self.d0 - 1))
+                            * is_b.unsqueeze(1).to(self.dtype))
+
+        if self.to_add > 0:
+            off = sel - self.d0
+            Pc[:, self.d0:] = (off.unsqueeze(1)
+                               == self._ar(self.to_add).unsqueeze(0)).to(self.dtype)
         return Pc
 
     def perturb(self, x, h, a, e):
@@ -233,14 +235,15 @@ class ButterflyMatrix(Operator):
 
     def accumulate(self, g, s, a, e):
         sel = self.sel[a:e]
+        is_b = sel < self.d0
         if self._u is None:
             self._u = torch.zeros(self.d0, dtype=self.dtype, device=self.device)
-        if self.to_add == 0:
-            self._u.index_add_(0, sel, s)
-        else:
-            is_b = sel < self.d_eff
-            self._u.index_add_(0, sel.clamp(max=self.d_eff - 1), s * is_b.to(s.dtype))
-            g.view(-1)[self.d0:].index_add_(0, (sel - self.d_eff).clamp(min=0), s * (~is_b).to(s.dtype))
+
+        self._u.index_add_(0, sel.clamp(max=self.d0 - 1), s * is_b.to(s.dtype))
+
+        if self.to_add > 0:
+            g.view(-1)[self.d0:].index_add_(
+                0, (sel - self.d0).clamp(min=0), s * (~is_b).to(s.dtype))
 
     def finalize(self, g):
         if self._u is not None:
