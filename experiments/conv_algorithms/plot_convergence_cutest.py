@@ -11,13 +11,11 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 from matplotlib.lines import Line2D  # noqa: E402
 
-# same colours / labels / order as every other figure (see plot_common.py)
 from plot_common import COLOR, LABEL, ORDER  # noqa: E402
 
 matplotlib.rcParams["pdf.fonttype"] = 42
 matplotlib.rcParams["ps.fonttype"] = 42
 
-# same style as plot_grad_acc.py
 try:
   plt.style.use("seaborn-v0_8-whitegrid")
 except OSError:
@@ -79,7 +77,6 @@ directories = os.listdir(data_dir)
 
 print("[--] Num files: ", len(directories))
 
-# values[problem][method][l_idx] = array (n_reps_found, n_fevals): ALL the repetitions are kept
 min_values = {}
 init_values = {}
 values = {}
@@ -141,7 +138,7 @@ P = len(keys)
 
 
 def run_ratio(runs, key):
-  """normalised optimality gap of every run: (f - f_min + eps) / (f_0 - f_min + eps)"""
+
   return (runs - min_values[key] + EPS) / (init_values[key] - min_values[key] + EPS)
 
 
@@ -149,7 +146,7 @@ _ratio_cache = {}
 
 
 def best_ratios(dir_type, l_idx):
-  """(P, reps) best normalised gap reached by each repetition on each problem (NaN = missing / invalid)."""
+
   if (dir_type, l_idx) not in _ratio_cache:
     out = np.full((P, reps), np.nan)
     for p, key in enumerate(keys):
@@ -161,7 +158,7 @@ def best_ratios(dir_type, l_idx):
 
 
 def boot_means(s):
-  """bootstrap over the problems: s is (P, T) = per-problem fraction solved -> (N_BOOT, T) resampled means."""
+
   rng = np.random.default_rng(0)
   n = s.shape[0]
   W = rng.multinomial(n, np.full(n, 1.0 / n), size=N_BOOT)
@@ -169,7 +166,7 @@ def boot_means(s):
 
 
 def summarize(S):
-  """S: (P, reps, T), 1 = solved, 0 = not solved, NaN = missing. Returns mean, lo, hi, each of shape (T,)."""
+
   with warnings.catch_warnings():
     warnings.simplefilter("ignore", RuntimeWarning)
     s = np.nanmean(S, axis=1)                         # (P, T) fraction of repetitions that solved the problem
@@ -253,8 +250,7 @@ print("[++] Writing LaTeX table")
 
 
 def table_cell(l_idx, methods, tau):
-  """mean +- std of the fraction of solved problems, averaged over the methods of the group.
-  reps: std over the repetitions.  boot: std of the bootstrap over the problems (standard error)."""
+
   per_rep, per_prob = [], []
   with warnings.catch_warnings():
     warnings.simplefilter("ignore", RuntimeWarning)
