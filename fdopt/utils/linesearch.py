@@ -25,6 +25,7 @@ class LineSearch:
 
         self.gamma = self.gamma0
         self.n_evals = 0
+        self.n_fails = 0            # number of times the step size was decreased (Armijo condition not satisfied)
         self.done = True
         self.accepted = False
         self.step = 0.0
@@ -73,12 +74,14 @@ class LineSearch:
         hit = ok.nonzero()
         if hit.numel() > 0:
             i = int(hit[0].item())
+            self.n_fails += i                       # the i larger candidates did not satisfy the Armijo condition
             self.step = self._steps[i]
             self.x_new = (self._x - self.step * self._g)
             self.f_new = fvals[i].clone()
             self.accepted, self.done = True, True
             self.gamma = min(self.expand * self.step, self.gamma_max)
             return
+        self.n_fails += len(self._steps)            # no candidate satisfied the Armijo condition: all decreased
         self.gamma = self._steps[-1] * self.beta
         self._steps = self._next_steps()
         if not self._steps:

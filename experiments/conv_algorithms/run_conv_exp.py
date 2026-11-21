@@ -1,4 +1,5 @@
 import argparse
+import csv
 import datetime
 import os
 import platform
@@ -22,6 +23,7 @@ from synthetic_targets import (GriewankFunction, LeastSquares, QuingFunction, Re
 
 
 METRICS = ["prog", "evals", "gamma", "step", "fails"]
+TRACE_METRICS = ["evals", "prog", "step", "fails"]   # trace files: evaluations, normalised f, step size, cumulative failures
 
 
 def make_function(name, d, dtype, device, a):
@@ -46,17 +48,15 @@ def run_once(ffd, f, x0, T):
     ffd.steps = []
     ffd.reset(x0.clone())
     fvals, evals, gammas, steps, fails = [], [], [], [], []
-    nfail = 0
     while True:
         while not ffd.done:
             ffd.tell(f(ffd.ask()))
         fvals.append(ffd.fx.item())
         evals.append(ffd.n_evals)
         ffd.step()
-        nfail += int(not ffd.ls.accepted)
         steps.append(float(ffd.last_step))
         gammas.append(float(ffd.ls.gamma))
-        fails.append(nfail)
+        fails.append(ffd.ls.n_fails)        # cumulative number of step-size decreases (Armijo not satisfied)
         if ffd.n_evals >= T:
             break
     return {"f": np.array(fvals), "evals": np.array(evals, dtype=np.float64), "gamma": np.array(gammas),
@@ -69,6 +69,33 @@ def pad_stack(arrs):
     for i, x in enumerate(arrs):
         out[i, : len(x)] = x
     return out
+
+
+def stat_rows(mets, metrics, stride, base):
+    """One row per stored iteration k: statistics across the repetitions of each metric (runs that already
+    stopped are NaN-padded and ignored; n_reps = number of runs still alive at k)."""
+    mats = {m: pad_stack(mets[m]) for m in metrics}
+    K = mats["prog"].shape[1]
+    ks = sorted(set(range(0, K, stride)) | {K - 1})
+    rows = []
+    for k in ks:
+        row = dict(base, k=k, n_reps=int(np.isfinite(mats["prog"][:, k]).sum()))
+        for m in metrics:
+            v = mats[m][:, k]
+            row.update(summarize(m, v))
+            ok = v[np.isfinite(v)]          # mean and (sample) std, added if summarize does not provide them
+            row.setdefault(f"{m}_mean", float(ok.mean()) if ok.size else float("nan"))
+            row.setdefault(f"{m}_std", float(ok.std(ddof=1)) if ok.size > 1 else 0.0 if ok.size else float("nan"))
+        rows.append(row)
+    return rows
+
+
+def write_trace(path, rows):
+    os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
+    with open(path, "w", newline="") as fh:
+        w = csv.DictWriter(fh, fieldnames=list(rows[0]))
+        w.writeheader()
+        w.writerows(rows)
 
 
 def write_log(a, path):
@@ -90,7 +117,7 @@ def write_log(a, path):
              f"metrics        : {', '.join(METRICS)}",
              f"statistics     : {', '.join(STATS)}",
              f"summary csv    : {a.out}",
-             f"raw csv        : {a.raw_out}",
+             f"trace dir      : {a.trace_dir} (metrics: {', '.join(TRACE_METRICS)}; stride {a.trace_stride})",
              "",
              "All arguments"]
     lines += [f"  {k} = {v}" for k, v in sorted(vars(a).items())]
@@ -98,7 +125,7 @@ def write_log(a, path):
         fh.write("\n".join(lines) + "\n")
 
 
-def run_block(fname, dname, d, a, summary_w, raw_w):
+def run_block(fname, dname, d, a, summary_w):
     dt, dev = DTYPES[dname], a.device
     f = make_function(fname, d, dt, dev, a)
     fmin = float(f.min_f)
@@ -115,29 +142,33 @@ def run_block(fname, dname, d, a, summary_w, raw_w):
             continue
         for key, est in ffd.items():
             r = run_once(est, f, x0, a.T)
-            r["prog"] = (r["f"] - fmin) / denom
-#            print(f"[--] feval: {r['prog']}")
+            r["prog"] = (r["f"] - fmin) / denom              # normalised function value (1 at x0, 0 at the minimum)
             for m in METRICS:
                 res[key][m].append(r[m])
-            if raw_w.path:
-                raw_w.write([{"function": fname, "family": key[0], "dtype": dname, "d": d, "l": key[1], "rep": rep,
-                              "k": k, "f": r["f"][k], **{m: r[m][k] for m in METRICS}}
-                             for k in range(0, len(r["f"]), a.stride)])
         print(f"   rep {rep + 1}/{a.reps}", flush=True)
+
+    # summary file (all the blocks in the same CSV)
     rows = []
     for (fam, l), mets in res.items():
         if not mets["prog"]:
             continue
-        mats = {m: pad_stack(mets[m]) for m in METRICS}
-        K = mats["prog"].shape[1]
-        ks = sorted(set(range(0, K, a.stride)) | {K - 1})
-        for k in ks:
-            row = dict(function=fname, family=fam, dtype=dname, d=d, l=l, k=k, h=a.h,
-                       n_reps=int(np.isfinite(mats["prog"][:, k]).sum()))
-            for m in METRICS:
-                row.update(summarize(m, mats[m][:, k]))
-            rows.append(row)
+        rows += stat_rows(mets, METRICS, a.stride,
+                          dict(function=fname, family=fam, dtype=dname, d=d, l=l, h=a.h))
     summary_w.write(rows)
+
+    # trace files: one per method and target, with the statistics of the normalised function value at every step
+    if a.trace_dir:
+        for fam in a.families:
+            trows = []
+            for l in ls:
+                mets = res[(fam, l)]
+                if not mets["prog"]:
+                    continue
+                trows += stat_rows(mets, TRACE_METRICS, a.trace_stride,
+                                   dict(function=fname, family=fam, dtype=dname, d=d, l=l))
+            if trows:
+                path = os.path.join(a.trace_dir, f"trace_{fname}_{fam}_{dname}_d{d}.csv")
+                write_trace(path, trows)
 
 
 def main():
@@ -152,7 +183,8 @@ def main():
     ap.add_argument("--T", type=int, default=10000, help="budget of function evaluations per run")
     ap.add_argument("--h", type=float, default=1e-7, help="finite-difference step")
     ap.add_argument("--sample-scale", type=float, default=1.0, help="x0 ~ U(box) shrunk around the box centre")
-    ap.add_argument("--stride", type=int, default=1, help="store every `stride`-th iteration (last one always kept)")
+    ap.add_argument("--stride", type=int, default=1,
+                    help="summary csv: store every `stride`-th iteration (last one always kept)")
     # line search
     ap.add_argument("--gamma0", type=float, default=1.0)
     ap.add_argument("--c1", type=float, default=1e-7)
@@ -170,7 +202,12 @@ def main():
     ap.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
     ap.add_argument("--seed", type=int, default=SEED)
     ap.add_argument("--out", default="results/convergence_ls.csv")
-    ap.add_argument("--raw-out", default=None, help="optional per-repetition, per-iteration CSV (can be large)")
+    ap.add_argument("--trace-dir", default=None,
+                    help="if given, write one CSV per (function, family, dtype, d) in this directory, with the "
+                         "median and percentiles over the repetitions of the normalised function value (and of "
+                         "the number of function evaluations) at every step, for every l")
+    ap.add_argument("--trace-stride", type=int, default=1,
+                    help="trace files: store every `stride`-th step (last one always kept)")
     ap.add_argument("--log", default=None)
     a = ap.parse_args()
 
@@ -178,18 +215,18 @@ def main():
     write_log(a, log_path)
     print(f"log -> {log_path}", flush=True)
 
-    summary_w, raw_w = Writer(a.out), Writer(a.raw_out)
+    summary_w = Writer(a.out)
     t0 = time.time()
     for dname in a.dtypes:
         for d in a.dims:
             for fname in a.functions:
-                run_block(fname, dname, d, a, summary_w, raw_w)
+                run_block(fname, dname, d, a, summary_w)
                 msg = f"[ok] {fname:13s} {dname} d={d}  ({time.time() - t0:.0f}s)"
                 print(msg, flush=True)
                 append_log(log_path, msg)
     append_log(log_path, f"finished       : {datetime.datetime.now().isoformat(timespec='seconds')} "
                          f"(total {time.time() - t0:.0f}s)")
-    print(f"summary -> {a.out}" + (f", raw -> {a.raw_out}" if a.raw_out else ""))
+    print(f"summary -> {a.out}" + (f", traces -> {a.trace_dir}" if a.trace_dir else ""))
 
 
 if __name__ == "__main__":
