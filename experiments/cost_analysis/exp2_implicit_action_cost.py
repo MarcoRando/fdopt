@@ -81,7 +81,7 @@ def load_done(path, retry_oom):
 def main():
     ap = argparse.ArgumentParser()
     add_common(ap, default_out("exp2_action.csv"))
-    ap.add_argument("--parts", nargs="+", default=["ask", "both"], choices=["ask", "tell", "both"])
+    ap.add_argument("--parts", nargs="+", default=["both"], choices=["ask", "tell", "both"])
     ap.add_argument("--max-iters", type=int, default=20000, help="skip batch sizes needing more chunks than this")
     ap.add_argument("--families", nargs="+", default=list(FAMILIES), choices=list(FAMILIES),
                     help="direction families of fdopt.directions.directions")
