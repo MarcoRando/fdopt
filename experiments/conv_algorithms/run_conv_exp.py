@@ -22,8 +22,17 @@ from exp_utils import (DTYPES, FAMILY_ORDER, FUNCTIONS, STATS, SEED, Writer, app
 from synthetic_targets import (GriewankFunction, LeastSquares, QuingFunction, RegularizedLogistic, RosenbrockFunction, TridFunction)
 
 
-METRICS = ["prog", "evals", "gamma", "step", "fails"]
-TRACE_METRICS = ["evals", "prog", "step", "fails"]   # trace files: evaluations, normalised f, step size, cumulative failures
+# per-iteration metrics recorded by run_once
+#   prog   : (F(x_k)-F*)/(F(x_0)-F*)
+#   gamma  : line-search step size after iteration k
+#   step   : accepted line-search step size gamma_k (0 if the search failed)
+#   disp   : actual displacement gamma_k*||g_hat|| (comparable across direction families, unlike gamma_k alone)
+#   fails  : cumulative number of step-size decreases (Armijo not satisfied)
+#   lsfrac : cumulative share of the function evaluations spent in the line search
+#   tpi    : line-search evaluations per outer iteration (running average)
+#   btavg  : step-size decreases (backtracks) per outer iteration (running average)
+BASE_METRICS = ["prog", "evals", "gamma", "step", "disp", "fails", "lsfrac", "tpi", "btavg"]
+BASE_TRACE = ["evals", "prog", "gamma", "step", "disp", "fails", "lsfrac", "tpi", "btavg"]
 
 
 def make_function(name, d, dtype, device, a):
@@ -42,25 +51,31 @@ def make_ffd(fam, d, l, dtype, device, a):
 
 
 def run_once(ffd, f, x0, T):
-
-    ffd.ls.restart()
+    ls = ffd.ls
+    ls.restart()
     ffd.n_evals = 0
     ffd.steps = []
     ffd.reset(x0.clone())
-    fvals, evals, gammas, steps, fails = [], [], [], [], []
+    fvals, evals, gammas, steps, disp, fails, lsc = [], [], [], [], [], [], []
     while True:
-        while not ffd.done:
+        while not ffd.done:                                  # gradient estimate AND line search of iteration k
             ffd.tell(f(ffd.ask()))
         fvals.append(ffd.fx.item())
-        evals.append(ffd.n_evals)
+        evals.append(ffd.n_evals)                            # includes the line search of iteration k
+        gnorm = float(ffd.gradient().norm())
         ffd.step()
         steps.append(float(ffd.last_step))
-        gammas.append(float(ffd.ls.gamma))
-        fails.append(ffd.ls.n_fails)        # cumulative number of step-size decreases (Armijo not satisfied)
+        disp.append(steps[-1] * gnorm)                       # ||x_{k+1} - x_k||
+        gammas.append(float(ls.gamma))
+        fails.append(ls.n_fails)                              # cumulative number of step-size decreases
+        lsc.append(ls.n_evals)                            # cumulative line-search evaluations (exact counter)
         if ffd.n_evals >= T:
             break
-    return {"f": np.array(fvals), "evals": np.array(evals, dtype=np.float64), "gamma": np.array(gammas),
-            "step": np.array(steps), "fails": np.array(fails, dtype=np.float64)}
+    ev, fa, lc = (np.array(v, dtype=np.float64) for v in (evals, fails, lsc))
+    iters = np.arange(1, len(fvals) + 1, dtype=np.float64)
+    out = {"f": np.array(fvals), "evals": ev, "gamma": np.array(gammas), "step": np.array(steps),
+           "disp": np.array(disp), "fails": fa, "lsfrac": lc / ev, "tpi": lc / iters, "btavg": fa / iters}
+    return out
 
 
 def pad_stack(arrs):
@@ -69,6 +84,29 @@ def pad_stack(arrs):
     for i, x in enumerate(arrs):
         out[i, : len(x)] = x
     return out
+
+
+def to_grid(mets, d, step, metrics):
+    """Resample every run on a COMMON grid of function evaluations (multiples of step*(d+1)): the value at grid
+    point g is the one of the last iteration that was completed with at most g evaluations (step function). Runs
+    that already stopped are NaN. This makes the statistics across repetitions (and across the methods, which
+    spend a different number of evaluations per iteration) comparable at equal evaluation budget."""
+    evs = mets["evals"]
+    gmax = max(e[-1] for e in evs) / (d + 1)
+    grid = np.arange(step, gmax + 1e-9, step) * (d + 1)
+    out = {m: [] for m in metrics}
+    for i, ev in enumerate(evs):
+        idx = np.searchsorted(ev, grid, side="right") - 1
+        ok = (idx >= 0) & (grid <= ev[-1])
+        for m in metrics:
+            if m == "evals":
+                v = np.where(ok, grid, np.nan)
+            else:
+                v = np.full(len(grid), np.nan)
+                v[ok] = mets[m][i][idx[ok]]
+            out[m].append(v)
+    alive = np.isfinite(np.vstack(out["prog"])).any(axis=0)
+    return {m: [v[alive] for v in out[m]] for m in metrics}
 
 
 def stat_rows(mets, metrics, stride, base):
@@ -98,7 +136,7 @@ def write_trace(path, rows):
         w.writerows(rows)
 
 
-def write_log(a, path):
+def write_log(a, path, metrics, trace_metrics):
     os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
     lines = ["Convergence experiment (FFD + Armijo line search)",
              f"started        : {datetime.datetime.now().isoformat(timespec='seconds')}",
@@ -114,10 +152,11 @@ def write_log(a, path):
              f"l (per d)      : " + "; ".join(f"d={d}: {get_ls(a, d)}" for d in a.dims),
              f"repetitions    : {a.reps} (different random x0 per repetition, shared by all methods)",
              f"budget T       : {a.T} function evaluations",
-             f"metrics        : {', '.join(METRICS)}",
+             f"metrics        : {', '.join(metrics)}",
              f"statistics     : {', '.join(STATS)}",
              f"summary csv    : {a.out}",
-             f"trace dir      : {a.trace_dir} (metrics: {', '.join(TRACE_METRICS)}; stride {a.trace_stride})",
+             f"trace dir      : {a.trace_dir} (metrics: {', '.join(trace_metrics)}; "
+             + (f"common grid of {a.grid_step} x (d+1) evaluations" if not a.no_grid else f"per iteration, stride {a.trace_stride}") + ")",
              "",
              "All arguments"]
     lines += [f"  {k} = {v}" for k, v in sorted(vars(a).items())]
@@ -125,13 +164,13 @@ def write_log(a, path):
         fh.write("\n".join(lines) + "\n")
 
 
-def run_block(fname, dname, d, a, summary_w):
+def run_block(fname, dname, d, a, summary_w, metrics, trace_metrics):
     dt, dev = DTYPES[dname], a.device
     f = make_function(fname, d, dt, dev, a)
     fmin = float(f.min_f)
     ls = get_ls(a, d)
     ffd = {(fam, l): make_ffd(fam, d, l, dt, dev, a) for fam in a.families for l in ls}
-    res = {k: {m: [] for m in METRICS} for k in ffd}
+    res = {k: {m: [] for m in metrics} for k in ffd}
     xgen = torch.Generator(device=dev)
     for rep in range(a.reps):
         xgen.manual_seed(a.seed + 1000 * rep + 7)            # same x0 for every family and l
@@ -143,20 +182,20 @@ def run_block(fname, dname, d, a, summary_w):
         for key, est in ffd.items():
             r = run_once(est, f, x0, a.T)
             r["prog"] = (r["f"] - fmin) / denom              # normalised function value (1 at x0, 0 at the minimum)
-            for m in METRICS:
+            for m in metrics:
                 res[key][m].append(r[m])
         print(f"   rep {rep + 1}/{a.reps}", flush=True)
 
-    # summary file (all the blocks in the same CSV)
+    # summary file (all the blocks in the same CSV), per iteration
     rows = []
     for (fam, l), mets in res.items():
         if not mets["prog"]:
             continue
-        rows += stat_rows(mets, METRICS, a.stride,
+        rows += stat_rows(mets, metrics, a.stride,
                           dict(function=fname, family=fam, dtype=dname, d=d, l=l, h=a.h))
     summary_w.write(rows)
 
-    # trace files: one per method and target, with the statistics of the normalised function value at every step
+    # trace files: one per method and target, statistics over the repetitions for every l
     if a.trace_dir:
         for fam in a.families:
             trows = []
@@ -164,7 +203,9 @@ def run_block(fname, dname, d, a, summary_w):
                 mets = res[(fam, l)]
                 if not mets["prog"]:
                     continue
-                trows += stat_rows(mets, TRACE_METRICS, a.trace_stride,
+                if not a.no_grid:
+                    mets = to_grid(mets, d, a.grid_step, trace_metrics)
+                trows += stat_rows(mets, trace_metrics, 1 if not a.no_grid else a.trace_stride,
                                    dict(function=fname, family=fam, dtype=dname, d=d, l=l))
             if trows:
                 path = os.path.join(a.trace_dir, f"trace_{fname}_{fam}_{dname}_d{d}.csv")
@@ -204,15 +245,20 @@ def main():
     ap.add_argument("--out", default="results/convergence_ls.csv")
     ap.add_argument("--trace-dir", default=None,
                     help="if given, write one CSV per (function, family, dtype, d) in this directory, with the "
-                         "median and percentiles over the repetitions of the normalised function value (and of "
-                         "the number of function evaluations) at every step, for every l")
+                         "statistics over the repetitions of the traced metrics for every l")
+    ap.add_argument("--no-grid", action="store_true",
+                    help="traces per iteration (old behaviour) instead of on a common grid of evaluations")
+    ap.add_argument("--grid-step", type=float, default=0.25,
+                    help="trace grid spacing, in units of (d+1) function evaluations")
     ap.add_argument("--trace-stride", type=int, default=1,
-                    help="trace files: store every `stride`-th step (last one always kept)")
+                    help="per-iteration traces (--no-grid): store every `stride`-th step (last one always kept)")
     ap.add_argument("--log", default=None)
     a = ap.parse_args()
 
+    metrics, trace_metrics = BASE_METRICS, BASE_TRACE
+
     log_path = a.log or os.path.splitext(a.out)[0] + ".log"
-    write_log(a, log_path)
+    write_log(a, log_path, metrics, trace_metrics)
     print(f"log -> {log_path}", flush=True)
 
     summary_w = Writer(a.out)
@@ -220,7 +266,7 @@ def main():
     for dname in a.dtypes:
         for d in a.dims:
             for fname in a.functions:
-                run_block(fname, dname, d, a, summary_w)
+                run_block(fname, dname, d, a, summary_w, metrics, trace_metrics)
                 msg = f"[ok] {fname:13s} {dname} d={d}  ({time.time() - t0:.0f}s)"
                 print(msg, flush=True)
                 append_log(log_path, msg)
