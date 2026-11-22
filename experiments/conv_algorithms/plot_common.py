@@ -64,7 +64,7 @@ def family_legend(fig, fams, ncol=4):
 
 
 def common_selection(rows, functions, d, dtype, families, ls):
-    """Resolve the defaults of --functions / --d / --dtype / --families / --ls from the data."""
+
     present = list(dict.fromkeys(r["function"] for r in rows))
     functions = functions or present
     missing = [f for f in functions if f not in present]

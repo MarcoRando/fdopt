@@ -13,7 +13,7 @@ try:                                                    # same style and font si
 except OSError:
     plt.style.use("ggplot")
 plt.rcParams.update({"figure.dpi": 110, "font.size": 10, "axes.titlesize": 14, "axes.labelsize": 10,
-                     "xtick.labelsize": 10, "ytick.labelsize": 9, "legend.fontsize": 12, "grid.alpha": 0.5})
+                     "xtick.labelsize": 12, "ytick.labelsize": 12, "legend.fontsize": 12, "grid.alpha": 0.5})
 
 YLABEL = r"$\frac{F(x_k)-F^*}{F(x_0)-F^*}$"
 XLABEL = r"$\#\ \mathrm{evals} / (d + 1)$"
@@ -27,7 +27,16 @@ STEP_TICKS = [5, 10, 15, 20]                            # evaluations / (d + 1) 
 PCT = ["p05", "p25", "p75", "p95", "min", "max"]
 
 
-# ------------------------------------------------------------------------------------------------ data
+fn_to_title = {
+    'LeastSquares' : "Least Squares",
+    'Qing' : "Qing",
+    'Rosenbrock' : 'Rosenbrock',
+    'RegularizedLogistic' : 'Logistic Regression',
+    'Trid' : 'Trid',
+    'Griewank' : 'Griewank'
+}
+
+
 def load_rows(a):
     paths = sorted(glob.glob(os.path.join(a.trace_dir, "trace_*.csv"))) if a.trace_dir else [a.csv]
     if not paths:
@@ -39,7 +48,7 @@ def load_rows(a):
 
 
 def rows_of(sub, fn, fam, l, a):
-    """Steps of one run family, sorted; the final steps reached by fewer than min_frac of the runs are dropped."""
+
     rs = [r for r in sub if r["function"] == fn and r["family"] == fam and r["l"] == l]
     if not rs:
         return []
@@ -57,7 +66,7 @@ def curve(rs, d, prefix, a):
 
 
 def step_at(rs, target):
-    """Row of the step whose median number of evaluations is closest to `target` (None if the runs stop before)."""
+
     if not rs:
         return None
     ev = np.array([r["evals_median"] for r in rs], dtype=float)
@@ -75,9 +84,8 @@ def box_stats(r, prefix, box, band):
     return {"med": med, "q1": q1, "q3": q3, "whislo": lo, "whishi": hi, "fliers": []}
 
 
-# ------------------------------------------------------------------------------------------------ figures
 def grid_figure(functions, ls, d, dtype, a, draw, ylabel, handles, stem0):
-    """Rows = functions, columns = l.  draw(ax, function, l) fills a panel and returns True if it drew something."""
+
     nr, nc = len(functions), len(ls)
     left, w, gap, right = 1.5, 2.35, 0.72, 0.2          # left margin = tick labels + the fraction used as y label
     ph, xt, top = 2.0, 0.35, 0.1                        # plot height, room for the x tick labels, top margin
@@ -88,7 +96,7 @@ def grid_figure(functions, ls, d, dtype, a, draw, ylabel, handles, stem0):
     fig = plt.figure(figsize=tuple(a.figsize))
     y = top
     for i, fn in enumerate(functions):
-        fig.text((left + (nc * w + (nc - 1) * gap) / 2) / W, 1 - (y + 0.05) / H, fn, ha="center", va="top",
+        fig.text((left + (nc * w + (nc - 1) * gap) / 2) / W, 1 - (y + 0.05) / H, fn_to_title[fn], ha="center", va="top",
                  fontsize=16, fontweight="bold")
         y_plot = y + ta(i)
         first = None
@@ -101,15 +109,15 @@ def grid_figure(functions, ls, d, dtype, a, draw, ylabel, handles, stem0):
             if i == 0:
                 ax.set_title(l_label(l, d))
             if i == nr - 1:
-                ax.set_xlabel(XLABEL, fontsize=16)
+                ax.set_xlabel(XLABEL, fontsize=14)
             if j == 0:
-                ax.set_ylabel(ylabel, fontsize=16, labelpad=8)
+                ax.set_ylabel(ylabel, fontsize=20, labelpad=8)
             elif a.sharey:
                 ax.tick_params(labelleft=False)
         y = y_plot + ph + xt
-    fig.legend(handles=handles, loc="lower left", bbox_to_anchor=(0.0, 0.0, 1.0, 1.0), ncol=5,
-               frameon=False, handlelength=2.5, fontsize=14, mode='expand', borderaxespad=0.2)
-    fig.tight_layout(rect=(0.0, 0.15, 1.0, 1.0))
+    fig.legend(handles=handles, loc="lower left", bbox_to_anchor=(0.0, 0.0, 1.0, 1.0), ncol=4,
+               frameon=False, handlelength=2.5, fontsize=16, mode='expand', borderaxespad=0.3)
+#    fig.tight_layout(rect=(0.0, 0.5, 1.0, 1.0))
     os.makedirs(a.outdir, exist_ok=True)
     tag = "-".join(functions) if a.functions else "all"
     stem = f"{a.prefix}{stem0}_{tag}_d{d}_{dtype}"
@@ -132,8 +140,8 @@ def make_curves(sub, metric, functions, fams, ls, d, dtype, a):
                 continue
             any_curve = True
             x, med, lo, hi = c
-            ax.fill_between(x, lo, hi, color=COLOR[fam], alpha=a.alpha, lw=0, step=None if a.no_steps else "post")
-            ax.plot(x, med, color=COLOR[fam], lw=3, drawstyle=ds)
+            ax.plot(x, med, color=COLOR[fam], lw=3, drawstyle=ds, rasterized=True)
+            ax.fill_between(x, lo, hi, color=COLOR[fam], alpha=a.alpha, lw=0, step=None if a.no_steps else "post", rasterized=True)
         ax.set_xlim(0, XTICKS[-1])
         ax.set_xticks(XTICKS)
         if log:
@@ -147,11 +155,11 @@ def make_curves(sub, metric, functions, fams, ls, d, dtype, a):
 
 
 def make_step_boxplots(sub, functions, fams, ls, d, dtype, a):
-    """Step size at evaluations/(d+1) = STEP_TICKS: one box per family inside each group (median, box, error bars)."""
+
     _, ylabel, stem0 = METRICS["step"]
     n = len(fams)
     spacing = STEP_TICKS[1] - STEP_TICKS[0]
-    wb = 0.8 * spacing / n                               # box pitch: the groups fill 80% of the tick spacing
+    wb = 0.8 * spacing / n
 
     def draw(ax, fn, l):
         stats, colors, pos = [], [], []
@@ -176,7 +184,6 @@ def make_step_boxplots(sub, functions, fams, ls, d, dtype, a):
     grid_figure(functions, ls, d, dtype, a, draw, ylabel, handles, stem0)
 
 
-# ------------------------------------------------------------------------------------------------ tables
 def fmt_num(v):
     if not np.isfinite(v):
         return "--"
@@ -192,7 +199,7 @@ def tex(s):
 
 
 def write_step_tables(sub, functions, fams, ls, d, dtype, a):
-    """One LaTeX table per function: median step size, rows = methods, columns = l x STEP_TICKS."""
+
     out = ["% median step size; needs \\usepackage{booktabs,graphicx}", ""]
     nt = len(STEP_TICKS)
     ticks = ", ".join(str(t) for t in STEP_TICKS)
@@ -222,7 +229,6 @@ def write_step_tables(sub, functions, fams, ls, d, dtype, a):
     print(f"[ok] {os.path.basename(path)} -> {a.outdir}")
 
 
-# ------------------------------------------------------------------------------------------------ main
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--csv", default="results/convergence_ls.csv", help="summary CSV written by run_conv_exp.py")
@@ -248,7 +254,7 @@ def main():
     ap.add_argument("--no-steps", action="store_true", help="join the points with straight lines (default: steps)")
     ap.add_argument("--sharey", action="store_true", help="share the y axis along each row")
     ap.add_argument("--no-tables", action="store_true", help="do not write the LaTeX tables of the step size")
-    ap.add_argument("--figsize", type=float, nargs=2, default=[14, 10], help="figure size in inches (as plot_grad_accuracy)")
+    ap.add_argument("--figsize", type=float, nargs=2, default=[15, 11], help="figure size in inches (as plot_grad_accuracy)")
     ap.add_argument("--floor", type=float, default=1e-16, help="values are clipped below this (log axis)")
     ap.add_argument("--prefix", default="", help="prefix for the output file names")
     ap.add_argument("--formats", nargs="+", default=["png", "pdf"])
