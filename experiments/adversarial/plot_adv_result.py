@@ -9,8 +9,7 @@ from plot_common import COLOR, LABEL, ORDER, l_label, plt
 matplotlib.rcParams['pdf.fonttype'] = 42
 matplotlib.rcParams['ps.fonttype'] = 42
 
-LABEL_FS = 16      # axis labels (same as the other figures)
-LW = 2             # line width used in the other figures
+LW = 3
 
 results_path = sys.argv[1]
 nreps = int(sys.argv[2])
@@ -90,35 +89,38 @@ print("[--] Results Loaded!")
 
 # STORED AS -> results[direction][num_direction][image]
 
-# same family order as in the other figures
 plot_types = [f for f in ORDER if f in direction_types]
 
-for tau in [0.1, 0.5, 1.0]:
-    fig, axes = plt.subplots(1, len(num_directions), figsize=(20, 4.6))
-    axes = axes.flatten()
-    handles = {}
-    for num_direction_idx in range(len(num_directions)):
-        ax = axes[num_direction_idx]
-        ax.set_title(l_label(num_directions[num_direction_idx], d))
-        for dir_type in plot_types:
-            profile = []
-            print("[--] Solving for ", dir_type)
-            for j in range(len(num_evals[dir_type][num_direction_idx])):
-                ris = np.array(results[dir_type][num_direction_idx][j]).reshape(nreps, -1)
-    #            ris = np.mean(ris, axis=0)
-                conv_test_single_img = np.mean( (ris - min_values[j]) / (init_values[j] - min_values[j]) <= tau, axis=0)
-                profile.append(conv_test_single_img)
-            profile = np.mean(profile, axis=0)
+tau = 0.5
 
-            h, = ax.plot(range(len(profile)), profile, '-', lw=LW, c=COLOR[dir_type], rasterized=True)
-            handles.setdefault(dir_type, h)
-        ax.set_ylim([-0.01, 1.01])
-        ax.set_xlabel("# function evaluations", fontsize=LABEL_FS)
-        if num_direction_idx == 0:
-            ax.set_ylabel("$\\rho_{val}(\\tau)$", fontsize=LABEL_FS)
-    # legend below the panels, 5 per row, as in the other figures
-    fig.legend([handles[f] for f in plot_types], [LABEL[f] for f in plot_types], loc="lower center",
-               ncol=min(len(plot_types), 5), frameon=False, handlelength=2.5)
-    fig.tight_layout(rect=(0, 0.12, 1, 1))
-    fig.savefig(f"./frac_solved_fvals_{tau}.pdf", bbox_inches='tight')
-    plt.close(fig)
+#for tau in [0.1, 0.5, 1.0]:
+fig, axes = plt.subplots(1, len(num_directions), figsize=(16, 4))
+axes = axes.flatten()
+handles = {}
+for num_direction_idx in range(len(num_directions)):
+    ax = axes[num_direction_idx]
+    ax.set_title(l_label(num_directions[num_direction_idx], d))
+    for dir_type in plot_types:
+        profile = []
+        print("[--] Solving for ", dir_type)
+        for j in range(len(num_evals[dir_type][num_direction_idx])):
+            ris = np.array(results[dir_type][num_direction_idx][j]).reshape(nreps, -1)
+#            ris = np.mean(ris, axis=0)
+            conv_test_single_img = np.mean( (ris - min_values[j]) / (init_values[j] - min_values[j]) <= tau, axis=0)
+            profile.append(conv_test_single_img)
+        profile = np.mean(profile, axis=0)
+
+        h, = ax.plot(np.arange(len(profile)) / (d + 1), profile, '-', lw=LW, c=COLOR[dir_type], rasterized=True)
+        handles.setdefault(dir_type, h)
+    ax.set_ylim([-0.01, 1.01])
+    ax.set_xticks([5, 10, 15, 20, 25, 30, 35])
+    ax.tick_params(axis='both', labelsize=13)
+    ax.set_xlabel("# evals / $(d + 1)$", fontsize=14)
+    if num_direction_idx == 0:
+        ax.set_ylabel("$\\rho_{val}(\\tau)$", fontsize=16)
+
+fig.legend([handles[f] for f in plot_types], [LABEL[f] for f in plot_types], loc="lower center",
+            ncol=min(len(plot_types), 5), frameon=False, handlelength=2.5, mode='expand', fontsize=14)
+fig.tight_layout(rect=(0, 0.2, 1, 1))
+fig.savefig(f"./frac_solved_fvals_{tau}.pdf", bbox_inches='tight')
+plt.close(fig)

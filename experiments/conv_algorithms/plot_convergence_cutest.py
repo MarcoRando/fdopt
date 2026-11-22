@@ -29,6 +29,10 @@ table_path = sys.argv[3] if len(sys.argv) > 3 else "./frac_solved_table.tex"
 BAND = sys.argv[4] if len(sys.argv) > 4 else "reps"
 if BAND not in ("reps", "boot"):
   raise SystemExit("band must be 'reps' or 'boot'")
+# optional 5th argument: right end of the x axis of the function-evaluation profiles, in evaluations / (d + 1)
+# (default: the largest value for which every problem has been run)
+X_MAX = float(sys.argv[5]) if len(sys.argv) > 5 else None
+N_X = 300          # number of points of the evaluations / (d + 1) grid
 data_dir = f"{base_dir}/ffd/cutest"
 
 EPS = 1e-10        
@@ -135,6 +139,7 @@ print("[--] Results Loaded!")
 
 keys = list(min_values.keys())
 P = len(keys)
+dims = [int(k.rsplit("_", 1)[-1]) for k in keys]      # dimension d of every problem (keys are function_idx_d)
 
 
 def run_ratio(runs, key):
@@ -207,9 +212,18 @@ style_axes(axes, r"$\tau$", r"$\rho_{val}(\tau)$")
 save_with_legend(fig, "./frac_solved_cutest.pdf")
 
 
-print("[++] Plotting Fraction Solved per Function Evaluations")
+print("[++] Plotting Fraction Solved per Function Evaluations (divided by d + 1)")
 taus = np.array([1e-9, 1e-7, 1e-5, 1e-3, 1e-2, 1e-1, 1e0])
 PLOT_TAU_IDX = [0, 1, 2, 3, 4, 5]
+
+# The problems have different dimensions, so the number of evaluations of each problem is divided by its own d + 1
+# and every problem is resampled on the common grid x = n_evals / (d + 1).
+if X_MAX is None:
+  longest = min(max(values[key][t][i].shape[1] for key in keys)
+                for t in direction_type for i in range(len(num_dirs_label)))
+  X_MAX = longest / (max(dims) + 1)                  # every problem has data up to here
+X_GRID = np.linspace(0.0, X_MAX, N_X)
+print(f"\t[--] x axis: evaluations / (d + 1) in [0, {X_MAX:.3g}]")
 
 traj = {}
 for dir_type in direction_type:
@@ -224,12 +238,17 @@ for dir_type in direction_type:
       R[p, :n_r, :L] = rr
       R[p, :n_r, L:] = rr.min(axis=1)[:, None]        # a finished run keeps its best value (solved stays solved)
       R[p, :n_r][bad] = np.nan
-    missing = np.isnan(R)
+    # resample on the grid evaluations / (d + 1): value of problem p after floor(x * (d_p + 1)) evaluations
+    Rx = np.empty((P, reps, N_X), dtype=np.float32)
+    for p in range(P):
+      idx = np.clip(np.floor(X_GRID * (dims[p] + 1)).astype(int) - 1, 0, max_len - 1)
+      Rx[p] = R[p][:, idx]
+    missing = np.isnan(Rx)
     for tau_idx in PLOT_TAU_IDX:
-      S = (R <= taus[tau_idx]).astype(np.float32)
+      S = (Rx <= taus[tau_idx]).astype(np.float32)
       S[missing] = np.nan
       traj[(dir_type, l_idx, tau_idx)] = summarize(S)
-    del R, S, missing
+    del R, Rx, S, missing
 
 for tau_idx in PLOT_TAU_IDX:
   print("\t[--] Accuracy tau = ", taus[tau_idx])
@@ -240,9 +259,9 @@ for tau_idx in PLOT_TAU_IDX:
     ax = axes[i]
     for dir_type in direction_type:
       mean, lo, hi = traj[(dir_type, i, tau_idx)]
-      plot_band(ax, np.arange(1, len(mean) + 1), mean, lo, hi, COLOR[dir_type], 3)
+      plot_band(ax, X_GRID, mean, lo, hi, COLOR[dir_type], 3)
     ax.set_ylim([-0.01, 1.01])
-  style_axes(axes, "# function evaluations", r"$\rho_{val}(\tau)$")
+  style_axes(axes, r"$\#\ \mathrm{evals} / (d + 1)$", r"$\rho_{val}(\tau)$")
   save_with_legend(fig, f"./frac_solved_fvals_profile_cutest_{taus[tau_idx]}.pdf")
 
 

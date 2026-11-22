@@ -69,5 +69,4 @@ fig.legend(handles=handles, loc="lower left", bbox_to_anchor=(0.0, 0.0, 1.0, 1.0
 #fig.subplots_adjust(bottom=0.32)
 fig.tight_layout(rect=(0.0, 0.15, 1.0,1.0))
 fig.savefig(out_path, bbox_inches="tight")
-fig.savefig(os.path.splitext(out_path)[0] + ".png", bbox_inches="tight")
 plt.close(fig)
